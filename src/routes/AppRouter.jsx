@@ -11,6 +11,7 @@ import RegistroCliente from '../features/comisionista/RegistroCliente'
 import DetalleCliente from '../features/comisionista/DetalleCliente'
 import RegistroPrestamo from '../features/comisionista/RegistroPrestamo'
 import ChecklistCuotas from '../features/comisionista/ChecklistCuotas'
+import ChecklistDelDia from '../features/comisionista/ChecklistDelDia'
 
 export function AppRouter() {
   return (
@@ -71,6 +72,15 @@ export function AppRouter() {
           element={
             <ProtectedRoute allowedRoles={[ROLES.COLLECTOR]}>
               <ChecklistCuotas />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/checklist-dia"
+          element={
+            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR]}>
+              <ChecklistDelDia />
             </ProtectedRoute>
           }
         />

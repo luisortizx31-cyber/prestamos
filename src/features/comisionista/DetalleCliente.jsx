@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../../config/firebase'
 import { listarPrestamosPorCliente } from '../../services/prestamosService'
+import { recalcularEstadoCliente } from '../../services/clienteEstadoService'
 import { EtiquetaEstadoCliente } from '../shared/EtiquetaEstadoCliente'
 import { TIPO_CUOTA_LABELS } from '../../models/prestamo'
 
@@ -24,6 +25,13 @@ export default function DetalleCliente() {
           setCliente({ id: snapCliente.id, ...snapCliente.data() })
         }
         setPrestamos(listaPrestamos)
+
+        // Self-heal: recalcula la etiqueta por si pasaron dias desde el
+        // ultimo pago sin que nadie haya entrado a ver a este cliente.
+        const nuevoEstado = await recalcularEstadoCliente(clienteId)
+        if (nuevoEstado) {
+          setCliente((prev) => (prev ? { ...prev, estado: nuevoEstado } : prev))
+        }
       } catch (err) {
         console.error('[DetalleCliente]', err)
       } finally {

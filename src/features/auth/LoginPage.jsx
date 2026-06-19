@@ -1,13 +1,36 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { login } from '../../services/authService'
+import { useAuth } from '../../context/AuthContext'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const { estaAutenticado, cargando, error: errorAuth } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState(null)
+
+  // FIX bug "hay que entrar dos veces": navegamos a "/" solo cuando el
+  // AuthContext confirma que la sesion Y el perfil de Firestore ya
+  // terminaron de cargar (estaAutenticado = true). Si navegaramos
+  // apenas login() resuelve (como antes), ProtectedRoute todavia veria
+  // estaAutenticado=false (el perfil tarda un instante mas en llegar) y
+  // nos rebotaria de vuelta a /login.
+  useEffect(() => {
+    if (!cargando && estaAutenticado) {
+      navigate('/', { replace: true })
+    }
+  }, [cargando, estaAutenticado, navigate])
+
+  // Si el contexto reporta un error (ej. el usuario no tiene perfil en
+  // /usuarios), lo mostramos aqui y liberamos el boton.
+  useEffect(() => {
+    if (errorAuth && enviando) {
+      setError('Tu cuenta no tiene un perfil valido. Contacta al administrador.')
+      setEnviando(false)
+    }
+  }, [errorAuth, enviando])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -15,11 +38,11 @@ export default function LoginPage() {
     setEnviando(true)
     try {
       await login(email, password)
-      navigate('/')
+      // No navegamos aqui a proposito: el useEffect de arriba se encarga
+      // apenas el AuthContext confirme que todo esta listo.
     } catch (err) {
-      console.error('[LoginPage] Error al iniciar sesión:', err)
-      setError('No pudimos iniciar sesión. Revisa tu correo y contraseña.')
-    } finally {
+      console.error('[LoginPage] Error al iniciar sesion:', err)
+      setError('No pudimos iniciar sesion. Revisa tu correo y contraseña.')
       setEnviando(false)
     }
   }

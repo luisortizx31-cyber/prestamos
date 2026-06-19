@@ -50,3 +50,8 @@ export const ESTADO_CUOTA = {
   PENDIENTE: 'pendiente',
   PAGADO: 'pagado',
 }
+
+export const METODO_PAGO = {
+  YAPE: 'yape',
+  EFECTIVO: 'efectivo',
+}

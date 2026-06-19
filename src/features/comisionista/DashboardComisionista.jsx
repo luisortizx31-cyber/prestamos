@@ -36,6 +36,17 @@ export default function DashboardComisionista() {
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-6">
+        <Link
+          to="/checklist-dia"
+          className="mb-5 flex items-center justify-between rounded-2xl bg-brand p-4 text-white active:scale-[0.99] transition-transform"
+        >
+          <div>
+            <p className="text-xs uppercase tracking-wide text-white/70">Tu dia</p>
+            <p className="font-semibold">Ver checklist del dia</p>
+          </div>
+          <span className="text-xl">→</span>
+        </Link>
+
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm text-ink-soft">{clientes.length} cliente{clientes.length !== 1 ? 's' : ''}</p>
           <Link

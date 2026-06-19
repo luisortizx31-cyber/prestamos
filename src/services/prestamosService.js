@@ -78,6 +78,7 @@ export async function crearPrestamoConCronograma(params) {
     batch.set(cuotaRef, {
       ...cuota,
       comisionistaId,
+      clienteId,
       prestamoId: prestamoRef.id,
     })
   })
