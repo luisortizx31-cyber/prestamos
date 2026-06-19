@@ -68,7 +68,18 @@ export async function crearPrestamoConCronograma(params) {
 
   cronograma.forEach((cuota) => {
     const cuotaRef = doc(collection(prestamoRef, 'cuotas'))
-    batch.set(cuotaRef, cuota)
+    // comisionistaId se guarda en cada cuota para que la Security Rule
+    // pueda validarlo con request.resource.data.comisionistaId sin tener
+    // que hacer get() al documento padre. Esto es necesario porque en un
+    // batch todas las escrituras ocurren al mismo tiempo: cuando Firestore
+    // evalúa la regla de la cuota, el documento padre del préstamo todavía
+    // no existe en la base de datos, así que un get() al padre devolvería
+    // null y bloquearía la escritura aunque todo sea correcto.
+    batch.set(cuotaRef, {
+      ...cuota,
+      comisionistaId,
+      prestamoId: prestamoRef.id,
+    })
   })
 
   await batch.commit()
@@ -77,6 +88,12 @@ export async function crearPrestamoConCronograma(params) {
 
 export async function listarPrestamosPorComisionista(comisionistaId) {
   const q = query(collection(db, 'prestamos'), where('comisionistaId', '==', comisionistaId))
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function listarPrestamosPorCliente(clienteId) {
+  const q = query(collection(db, 'prestamos'), where('clienteId', '==', clienteId))
   const snap = await getDocs(q)
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }

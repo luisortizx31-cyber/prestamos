@@ -14,6 +14,7 @@ export default function DashboardComisionista() {
     if (!usuarioAuth) return
     listarClientesPorComisionista(usuarioAuth.uid)
       .then(setClientes)
+      .catch(console.error)
       .finally(() => setCargando(false))
   }, [usuarioAuth])
 
@@ -35,7 +36,8 @@ export default function DashboardComisionista() {
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-6">
-        <div className="mb-4 flex justify-end">
+        <div className="mb-4 flex items-center justify-between">
+          <p className="text-sm text-ink-soft">{clientes.length} cliente{clientes.length !== 1 ? 's' : ''}</p>
           <Link
             to="/clientes/nuevo"
             className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white"
@@ -44,25 +46,31 @@ export default function DashboardComisionista() {
           </Link>
         </div>
 
-        {cargando && <p className="text-ink-soft">Cargando…</p>}
+        {cargando && <p className="text-ink-soft">Cargando...</p>}
 
         {!cargando && clientes.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-line p-6 text-center text-ink-soft">
-            Todavía no tienes clientes registrados.
+          <div className="rounded-2xl border border-dashed border-line p-8 text-center text-ink-soft">
+            <p className="text-lg mb-1">Sin clientes aun</p>
+            <p className="text-sm">Toca "+ Nuevo cliente" para registrar el primero.</p>
           </div>
         )}
 
         <ul className="space-y-3">
           {clientes.map((c) => (
-            <li
-              key={c.id}
-              className="flex items-center justify-between rounded-2xl border border-line bg-surface p-4"
-            >
-              <div>
-                <p className="font-medium text-ink">{c.nombre}</p>
-                <p className="text-sm text-ink-soft">DNI {c.dni}</p>
-              </div>
-              <EtiquetaEstadoCliente estado={c.estado} />
+            <li key={c.id}>
+              <Link
+                to={`/clientes/${c.id}`}
+                className="flex items-center justify-between rounded-2xl border border-line bg-surface p-4 active:bg-paper transition-colors"
+              >
+                <div>
+                  <p className="font-medium text-ink">{c.nombre}</p>
+                  <p className="text-sm text-ink-soft">DNI {c.dni}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <EtiquetaEstadoCliente estado={c.estado} />
+                  <span className="text-ink-soft text-lg">›</span>
+                </div>
+              </Link>
             </li>
           ))}
         </ul>

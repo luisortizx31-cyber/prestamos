@@ -8,6 +8,9 @@ import DashboardMaestro from '../features/maestro/DashboardMaestro'
 import RegistroComisionista from '../features/maestro/RegistroComisionista'
 import DashboardComisionista from '../features/comisionista/DashboardComisionista'
 import RegistroCliente from '../features/comisionista/RegistroCliente'
+import DetalleCliente from '../features/comisionista/DetalleCliente'
+import RegistroPrestamo from '../features/comisionista/RegistroPrestamo'
+import ChecklistCuotas from '../features/comisionista/ChecklistCuotas'
 
 export function AppRouter() {
   return (
@@ -15,6 +18,7 @@ export function AppRouter() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 
+        {/* Ruta raiz: redirige segun rol */}
         <Route
           path="/"
           element={
@@ -24,6 +28,7 @@ export function AppRouter() {
           }
         />
 
+        {/* Rutas del Maestro */}
         <Route
           path="/comisionistas/nuevo"
           element={
@@ -33,11 +38,39 @@ export function AppRouter() {
           }
         />
 
+        {/* Rutas del Comisionista */}
         <Route
           path="/clientes/nuevo"
           element={
             <ProtectedRoute allowedRoles={[ROLES.COLLECTOR]}>
               <RegistroCliente />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/clientes/:clienteId"
+          element={
+            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR]}>
+              <DetalleCliente />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/clientes/:clienteId/prestamos/nuevo"
+          element={
+            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR]}>
+              <RegistroPrestamo />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/prestamos/:prestamoId/cuotas"
+          element={
+            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR]}>
+              <ChecklistCuotas />
             </ProtectedRoute>
           }
         />
@@ -48,20 +81,13 @@ export function AppRouter() {
   )
 }
 
-/**
- * La ruta "/" no es una pantalla en sí: decide a qué dashboard mandar
- * según el rol del usuario logueado. Mantiene App.jsx y el router
- * limpios de lógica de roles dispersa.
- */
 function RedireccionPorRol() {
   const { role } = useAuth()
-
   if (role === ROLES.MASTER) return <DashboardMaestro />
   if (role === ROLES.COLLECTOR) return <DashboardComisionista />
-
   return (
-    <div className="flex min-h-screen items-center justify-center text-ink-soft">
-      Tu cuenta no tiene un rol válido asignado. Contacta al administrador.
+    <div className="flex min-h-screen items-center justify-center text-ink-soft px-6 text-center">
+      Tu cuenta no tiene un rol valido asignado. Contacta al administrador.
     </div>
   )
 }
