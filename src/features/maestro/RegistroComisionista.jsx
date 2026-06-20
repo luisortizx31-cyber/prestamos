@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { crearComisionista } from '../../services/comisionistasService'
+import { validarDni, validarPin } from '../../utils/authVirtual'
 
 export default function RegistroComisionista() {
   const navigate = useNavigate()
-  const [form, setForm] = useState({ nombre: '', email: '', password: '', telefono: '' })
+  const [form, setForm] = useState({ nombre: '', dni: '', pin: '', telefono: '' })
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState(null)
 
@@ -12,14 +13,33 @@ export default function RegistroComisionista() {
     setForm((f) => ({ ...f, [campo]: valor }))
   }
 
+  function handleDni(valor) {
+    actualizar('dni', valor.replace(/\D/g, '').slice(0, 8))
+  }
+
+  function handlePin(valor) {
+    actualizar('pin', valor.replace(/\D/g, '').slice(0, 6))
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
+
+    if (!validarDni(form.dni)) {
+      setError('El DNI debe tener 8 digitos.')
+      return
+    }
+    if (!validarPin(form.pin)) {
+      setError('El PIN debe tener 6 digitos.')
+      return
+    }
+
     setEnviando(true)
     try {
       await crearComisionista(form)
       navigate('/')
     } catch (err) {
+      console.error('[RegistroComisionista]', err)
       setError(err.message || 'No se pudo crear el comisionista.')
     } finally {
       setEnviando(false)
@@ -37,20 +57,39 @@ export default function RegistroComisionista() {
             value={form.nombre}
             onChange={(v) => actualizar('nombre', v)}
           />
+
+          <div>
+            <label className="block text-sm font-medium text-ink mb-1">DNI</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              required
+              value={form.dni}
+              onChange={(e) => handleDni(e.target.value)}
+              placeholder="12345678"
+              maxLength={8}
+              className="w-full rounded-lg border border-line bg-paper px-3 py-2.5 font-mono text-ink outline-none focus-visible:border-brand mb-4"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-ink mb-1">
+              PIN (6 digitos, el comisionista lo usara para entrar)
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              required
+              value={form.pin}
+              onChange={(e) => handlePin(e.target.value)}
+              placeholder="123456"
+              maxLength={6}
+              className="w-full rounded-lg border border-line bg-paper px-3 py-2.5 font-mono text-ink outline-none focus-visible:border-brand mb-4"
+            />
+          </div>
+
           <Campo
-            label="Correo"
-            type="email"
-            value={form.email}
-            onChange={(v) => actualizar('email', v)}
-          />
-          <Campo
-            label="Contraseña temporal"
-            type="password"
-            value={form.password}
-            onChange={(v) => actualizar('password', v)}
-          />
-          <Campo
-            label="Teléfono (opcional)"
+            label="Telefono (opcional)"
             value={form.telefono}
             onChange={(v) => actualizar('telefono', v)}
             required={false}

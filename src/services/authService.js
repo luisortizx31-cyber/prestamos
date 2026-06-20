@@ -5,12 +5,33 @@ import {
 } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../config/firebase'
+import { construirCorreoVirtual, validarDni, validarPin } from '../utils/authVirtual'
 
 /**
- * Inicia sesión con email/contraseña.
+ * Login legacy con email/contraseña real. Se mantiene por si en algun
+ * caso se necesita un acceso directo por correo, pero el flujo
+ * principal del sistema (comisionistas y administrador) usa
+ * loginConDni() de abajo.
  */
 export async function login(email, password) {
   const credential = await signInWithEmailAndPassword(auth, email, password)
+  return credential.user
+}
+
+/**
+ * Login por DNI + PIN: construye el correo virtual internamente y lo
+ * procesa de forma transparente con Firebase Auth. El comisionista
+ * nunca ve ni necesita saber que existe un "correo" detras de esto.
+ */
+export async function loginConDni(dni, pin) {
+  if (!validarDni(dni)) {
+    throw new Error('El DNI debe tener 8 digitos numericos.')
+  }
+  if (!validarPin(pin)) {
+    throw new Error('El PIN debe tener 6 digitos numericos.')
+  }
+  const correoVirtual = construirCorreoVirtual(dni)
+  const credential = await signInWithEmailAndPassword(auth, correoVirtual, pin)
   return credential.user
 }
 

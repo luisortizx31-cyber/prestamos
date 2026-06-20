@@ -15,11 +15,13 @@ import {
 } from 'firebase/firestore'
 import { app, db } from '../config/firebase'
 import { ROLES } from '../models/roles'
+import { construirCorreoVirtual, validarDni, validarPin } from '../utils/authVirtual'
 
 /**
- * Crea un Comisionista nuevo (cuenta de Auth + perfil en Firestore).
+ * Crea un Comisionista nuevo (cuenta de Auth + perfil en Firestore),
+ * usando DNI + PIN como credenciales (sin correos reales).
  *
- * Problema que resuelve: el SDK de cliente de Firebase Auth, al llamar
+ * Problema 1 que resuelve: el SDK de cliente de Firebase Auth, al llamar
  * createUserWithEmailAndPassword, INICIA SESIÓN automáticamente como el
  * usuario recién creado. Si lo hiciéramos directo, el Maestro perdería
  * su propia sesión cada vez que registra a un comisionista.
@@ -29,26 +31,37 @@ import { ROLES } from '../models/roles'
  * solo para crear el usuario, y se destruye enseguida. La sesión del
  * Maestro en la app principal nunca se toca.
  *
- * (A futuro, si el proyecto pasa a plan Blaze, esto se puede mover a una
- * Cloud Function callable para mayor prolijidad — pero no es necesario
- * para que funcione correctamente hoy.)
+ * Problema 2 que resuelve: el cliente no quiere que el personal de
+ * campo use correos reales. Por eso aqui se construye un correo
+ * "virtual" a partir del DNI (ver utils/authVirtual.js) y se usa el PIN
+ * de 6 digitos como contraseña ante Firebase Auth. El comisionista, al
+ * loguearse, solo ve "DNI" y "PIN" — nunca un correo.
  */
-export async function crearComisionista({ nombre, email, password, telefono }) {
+export async function crearComisionista({ nombre, dni, pin, telefono }) {
+  if (!validarDni(dni)) {
+    throw new Error('El DNI debe tener 8 digitos numericos.')
+  }
+  if (!validarPin(pin)) {
+    throw new Error('El PIN debe tener 6 digitos numericos.')
+  }
+
+  const correoVirtual = construirCorreoVirtual(dni)
   const secondaryApp = initializeApp(app.options, `secondary-${Date.now()}`)
   const secondaryAuth = getAuth(secondaryApp)
 
   try {
     const credential = await createUserWithEmailAndPassword(
       secondaryAuth,
-      email,
-      password
+      correoVirtual,
+      pin
     )
     const uid = credential.user.uid
 
     await setDoc(doc(db, 'usuarios', uid), {
       uid,
       nombre,
-      email,
+      dni: dni.trim(),
+      correoVirtual, // guardado solo como referencia/debug, no se usa en la UI
       telefono: telefono || null,
       role: ROLES.COLLECTOR,
       activo: true,

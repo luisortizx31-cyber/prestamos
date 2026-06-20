@@ -1,0 +1,43 @@
+﻿# Copia este archivo como ".env" (local) y completa con los datos REALES
+# de tu proyecto de Firebase: Console > Configuración del proyecto >
+# Tus apps > app Web > "Config" del SDK.
+#
+# En Vercel: Project Settings > Environment Variables, agrega cada una
+# de estas mismas claves con su valor real (no subas el .env, solo estas
+# variables al dashboard de Vercel).
+#
+# Importante: en Vite, SOLO las variables que empiezan con VITE_ quedan
+# disponibles en el código del navegador (import.meta.env.VITE_...).
+
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+
+# Dominio "virtual" para el login por DNI (ver utils/authVirtual.js).
+# NO necesita ser un dominio real registrado - Firebase Auth solo exige
+# formato de email valido, nunca envia correos reales en este flujo.
+# Puedes dejar el valor por defecto o personalizarlo, ej:
+# prestamosjairo.local
+VITE_AUTH_VIRTUAL_DOMAIN=usuarios.app
+
+Buena pregunta para aclarar. Ese archivo es .env.example — es solo una plantilla de referencia, no contiene datos reales 
+(por eso se puede subir a GitHub sin problema).
+ El archivo que realmente usa tu app es tu .env (el que tiene tus credenciales de Firebase reales), y ese nunca te lo mando
+ porque está en tu .gitignore y tiene tus datos privados.
+Qué hacer exactamente
+
+Reemplaza tu .env.example por el que te mandé (es solo para referencia, no afecta nada en funcionamiento).
+Abre tu .env real (el que ya tienes con tus credenciales de Firebase) y agrégale esta línea nueva al final:
+
+   VITE_AUTH_VIRTUAL_DOMAIN=usuarios.app
+Puedes dejarlo así o cambiarlo por lo que quieras, ej. prestamosjairo.local — no necesita ser un dominio real.
+
+En Vercel: Project Settings → Environment Variables → agrega esa misma variable (VITE_AUTH_VIRTUAL_DOMAIN = el mismo valor) para que
+ funcione también en producción.
+Reinicia npm run dev después de editar el .env local — Vite no detecta cambios de variables de entorno en caliente, hay que reiniciar el servidor.
+
+Sin este paso, el login por DNI va a fallar porque import.meta.env.VITE_AUTH_VIRTUAL_DOMAIN vendría vacío (aunque hay un fallback a
+ 'usuarios.app' en el código, así que técnicamente funcionaría igual aunque no agregues la variable — pero es buena práctica tenerla explícita
