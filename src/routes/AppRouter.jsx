@@ -7,6 +7,7 @@ import LoginPage from '../features/auth/LoginPage'
 import DashboardMaestro from '../features/maestro/DashboardMaestro'
 import RegistroComisionista from '../features/maestro/RegistroComisionista'
 import ConciliacionCaja from '../features/maestro/ConciliacionCaja'
+import DetalleComisionista from '../features/maestro/DetalleComisionista'
 import DashboardComisionista from '../features/comisionista/DashboardComisionista'
 import RegistroCliente from '../features/comisionista/RegistroCliente'
 import DetalleCliente from '../features/comisionista/DetalleCliente'
@@ -49,6 +50,15 @@ export function AppRouter() {
           }
         />
 
+        <Route
+          path="/comisionistas/:comisionistaId"
+          element={
+            <ProtectedRoute allowedRoles={[ROLES.MASTER]}>
+              <DetalleComisionista />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Rutas del Comisionista */}
         <Route
           path="/clientes/nuevo"
@@ -62,7 +72,7 @@ export function AppRouter() {
         <Route
           path="/clientes/:clienteId"
           element={
-            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR]}>
+            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR, ROLES.MASTER]}>
               <DetalleCliente />
             </ProtectedRoute>
           }
@@ -80,7 +90,7 @@ export function AppRouter() {
         <Route
           path="/prestamos/:prestamoId/cuotas"
           element={
-            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR]}>
+            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR, ROLES.MASTER]}>
               <ChecklistCuotas />
             </ProtectedRoute>
           }
