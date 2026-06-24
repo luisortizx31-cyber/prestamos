@@ -14,6 +14,7 @@ export default function ChecklistCuotas() {
   const { usuarioAuth } = useAuth()
   const { esMaestro } = useRole()
   const [prestamo, setPrestamo] = useState(null)
+  const [clienteNombre, setClienteNombre] = useState(null)
   const [cuotas, setCuotas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState(null)
@@ -24,7 +25,15 @@ export default function ChecklistCuotas() {
     async function iniciar() {
       const snapPrestamo = await getDoc(doc(db, 'prestamos', prestamoId))
       if (snapPrestamo.exists()) {
-        setPrestamo({ id: snapPrestamo.id, ...snapPrestamo.data() })
+        const datosPrestamo = { id: snapPrestamo.id, ...snapPrestamo.data() }
+        setPrestamo(datosPrestamo)
+
+        if (datosPrestamo.clienteId) {
+          const snapCliente = await getDoc(doc(db, 'clientes', datosPrestamo.clienteId))
+          if (snapCliente.exists()) {
+            setClienteNombre(snapCliente.data().nombre)
+          }
+        }
       }
       const cuotasRef = collection(db, 'prestamos', prestamoId, 'cuotas')
       // IMPORTANTE: la regla de seguridad de /cuotas depende del campo
@@ -115,7 +124,7 @@ export default function ChecklistCuotas() {
           </button>
           <div>
             <p className="font-mono text-xs tracking-widest text-ink-soft uppercase">
-              Cronograma de cobro
+              {clienteNombre || 'Cronograma de cobro'}
             </p>
             <h1 className="text-lg font-semibold text-ink">
               {prestamo ? `S/ ${(prestamo.montoPrestado || 0).toFixed(2)}` : '...'}
