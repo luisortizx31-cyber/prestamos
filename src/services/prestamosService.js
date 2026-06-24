@@ -1,6 +1,8 @@
 import {
   collection,
   doc,
+  getDoc,
+  updateDoc,
   writeBatch,
   getDocs,
   query,
@@ -27,6 +29,8 @@ import { calcularMontos, generarCronograma } from '../utils/calcularCronograma'
  * @param {number} [params.numeroCuotas]
  * @param {Date}   params.fechaInicio
  * @param {Date}   [params.fechaEspecifica]
+ * @param {string} [params.prestamoOrigenId]  si este prestamo nace de
+ *                  una renovacion, el id del prestamo anterior (trazabilidad)
  */
 export async function crearPrestamoConCronograma(params) {
   const {
@@ -39,6 +43,7 @@ export async function crearPrestamoConCronograma(params) {
     numeroCuotas,
     fechaInicio,
     fechaEspecifica,
+    prestamoOrigenId,
   } = params
 
   const montos = calcularMontos(montoPrestado, tasaInteres, porcentajeSeguro)
@@ -63,6 +68,7 @@ export async function crearPrestamoConCronograma(params) {
     ...montos,
     totalCuotas: cronograma.length,
     cuotasPagadas: 0,
+    prestamoOrigenId: prestamoOrigenId || null,
     creadoEn: serverTimestamp(),
   })
 
@@ -85,6 +91,24 @@ export async function crearPrestamoConCronograma(params) {
 
   await batch.commit()
   return prestamoRef.id
+}
+
+export async function obtenerPrestamo(prestamoId) {
+  const snap = await getDoc(doc(db, 'prestamos', prestamoId))
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null
+}
+
+/**
+ * Marca un préstamo como renovado y lo enlaza con el préstamo nuevo
+ * que lo reemplaza (para trazabilidad y para que
+ * debeOfrecerRenovacion() no lo vuelva a ofrecer).
+ */
+export async function marcarPrestamoRenovado(prestamoOrigenId, prestamoNuevoId) {
+  await updateDoc(doc(db, 'prestamos', prestamoOrigenId), {
+    renovado: true,
+    renovadoEn: serverTimestamp(),
+    prestamoRenovacionId: prestamoNuevoId,
+  })
 }
 
 export async function listarPrestamosPorComisionista(comisionistaId) {

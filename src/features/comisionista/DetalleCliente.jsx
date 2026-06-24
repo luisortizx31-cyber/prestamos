@@ -5,11 +5,14 @@ import { db } from '../../config/firebase'
 import { listarPrestamosPorCliente } from '../../services/prestamosService'
 import { recalcularEstadoCliente } from '../../services/clienteEstadoService'
 import { EtiquetaEstadoCliente } from '../shared/EtiquetaEstadoCliente'
+import { BotonOfrecerRenovacion } from '../shared/BotonOfrecerRenovacion'
+import { useRole } from '../../hooks/useRole'
 import { TIPO_CUOTA_LABELS } from '../../models/prestamo'
 
 export default function DetalleCliente() {
   const { clienteId } = useParams()
   const navigate = useNavigate()
+  const { esMaestro } = useRole()
   const [cliente, setCliente] = useState(null)
   const [prestamos, setPrestamos] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -101,12 +104,14 @@ export default function DetalleCliente() {
           <h2 className="text-sm font-semibold text-ink">
             Prestamos ({prestamos.length})
           </h2>
-          <Link
-            to={`/clientes/${clienteId}/prestamos/nuevo`}
-            className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white"
-          >
-            + Nuevo prestamo
-          </Link>
+          {!esMaestro && (
+            <Link
+              to={`/clientes/${clienteId}/prestamos/nuevo`}
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white"
+            >
+              + Nuevo prestamo
+            </Link>
+          )}
         </div>
 
         {prestamos.length === 0 && (
@@ -168,6 +173,14 @@ export default function DetalleCliente() {
                     </p>
                   )}
                 </Link>
+
+                {/* Fuera del Link a proposito: un <a> no puede contener
+                    otro <a>. BotonOfrecerRenovacion trae su propio
+                    margen superior para separarse visualmente de la
+                    tarjeta del prestamo. */}
+                {!esMaestro && (
+                  <BotonOfrecerRenovacion prestamo={p} clienteId={clienteId} />
+                )}
               </li>
             )
           })}

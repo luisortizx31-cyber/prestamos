@@ -1,18 +1,22 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { doc, getDoc, onSnapshot, collection, query, orderBy } from 'firebase/firestore'
+import { doc, getDoc, onSnapshot, collection, query, where } from 'firebase/firestore'
 import { db } from '../../config/firebase'
 import { useAuth } from '../../context/AuthContext'
+import { useRole } from '../../hooks/useRole'
 import { ModalCobro } from '../shared/ModalCobro'
+import { BotonOfrecerRenovacion } from '../shared/BotonOfrecerRenovacion'
 import { ESTADO_CUOTA, METODO_PAGO, TIPO_CUOTA_LABELS } from '../../models/prestamo'
 
 export default function ChecklistCuotas() {
   const { prestamoId } = useParams()
   const navigate = useNavigate()
   const { usuarioAuth } = useAuth()
+  const { esMaestro } = useRole()
   const [prestamo, setPrestamo] = useState(null)
   const [cuotas, setCuotas] = useState([])
   const [cargando, setCargando] = useState(true)
+  const [errorCarga, setErrorCarga] = useState(null)
   const [cuotaActiva, setCuotaActiva] = useState(null)
 
   useEffect(() => {
@@ -22,27 +26,82 @@ export default function ChecklistCuotas() {
       if (snapPrestamo.exists()) {
         setPrestamo({ id: snapPrestamo.id, ...snapPrestamo.data() })
       }
-      const q = query(
-        collection(db, 'prestamos', prestamoId, 'cuotas'),
-        orderBy('numero', 'asc')
+      const cuotasRef = collection(db, 'prestamos', prestamoId, 'cuotas')
+      // IMPORTANTE: la regla de seguridad de /cuotas depende del campo
+      // comisionistaId SOLO en la rama del comisionista. La rama del
+      // Maestro (esMaestro()) no depende de ningun campo del documento,
+      // asi que el Maestro puede leer SIN el filtro where(); si se lo
+      // agregaramos igual, el resultado le saldria vacio (su propio uid
+      // nunca es el comisionistaId de la cuota). El comisionista, en
+      // cambio, SI necesita el filtro — sin el, Firestore rechaza la
+      // consulta completa con "permission denied" (ver fix anterior).
+      const q = esMaestro
+        ? query(cuotasRef)
+        : query(cuotasRef, where('comisionistaId', '==', usuarioAuth.uid))
+      unsub = onSnapshot(
+        q,
+        (snap) => {
+          // Ordenamos por numero en el cliente (no con orderBy en la
+          // query) para no necesitar crear un indice compuesto en
+          // Firestore solo para esta pantalla.
+          const lista = snap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => a.numero - b.numero)
+          setCuotas(lista)
+          setCargando(false)
+        },
+        (err) => {
+          // Si Firestore rechaza la suscripcion (ej. permisos), esto se
+          // dispara DESPUES del subscribe inicial. Sin este callback la
+          // pantalla se quedaria "cargando" para siempre sin avisar nada.
+          console.error('[ChecklistCuotas] onSnapshot error:', err)
+          setErrorCarga(
+            err.code === 'permission-denied'
+              ? 'No tienes permiso para ver este prestamo.'
+              : 'Ocurrio un error al cargar las cuotas.'
+          )
+          setCargando(false)
+        }
       )
-      unsub = onSnapshot(q, (snap) => {
-        setCuotas(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-        setCargando(false)
-      })
     }
-    iniciar().catch(console.error)
+    iniciar().catch((err) => {
+      // Mismo problema si el error ocurre en el getDoc inicial (antes de
+      // siquiera llegar a suscribirse) — sin este catch con setCargando,
+      // la pantalla quedaba congelada en el spinner para siempre.
+      console.error('[ChecklistCuotas] Error al iniciar:', err)
+      setErrorCarga(
+        err.code === 'permission-denied'
+          ? 'No tienes permiso para ver este prestamo.'
+          : 'Ocurrio un error al cargar el prestamo.'
+      )
+      setCargando(false)
+    })
     return () => unsub?.()
-  }, [prestamoId])
+  }, [prestamoId, usuarioAuth?.uid, esMaestro])
 
   const pagadas = cuotas.filter((c) => c.estado === ESTADO_CUOTA.PAGADO).length
-  const pendientes = cuotas.length - pagadas
+  const enRevision = cuotas.filter((c) => c.estado === ESTADO_CUOTA.POR_VERIFICAR).length
+  const pendientes = cuotas.length - pagadas - enRevision
   const progreso = cuotas.length > 0 ? Math.round((pagadas / cuotas.length) * 100) : 0
 
   if (cargando) {
     return (
       <div className="flex min-h-screen items-center justify-center text-ink-soft">
         Cargando...
+      </div>
+    )
+  }
+
+  if (errorCarga) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-danger font-medium">{errorCarga}</p>
+        <button
+          onClick={() => navigate(-1)}
+          className="rounded-lg border border-line px-4 py-2 text-sm text-ink-soft"
+        >
+          ← Volver
+        </button>
       </div>
     )
   }
@@ -70,7 +129,7 @@ export default function ChecklistCuotas() {
         </div>
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs text-ink-soft">
-            <span>{pagadas} de {cuotas.length} cuotas cobradas</span>
+            <span>{pagadas} de {cuotas.length} cuotas confirmadas</span>
             <span className="font-medium text-brand">{progreso}%</span>
           </div>
           <div className="h-2.5 w-full rounded-full bg-line overflow-hidden">
@@ -79,12 +138,19 @@ export default function ChecklistCuotas() {
               style={{ width: `${progreso}%` }}
             />
           </div>
-          {pendientes > 0 && (
-            <p className="text-xs text-ink-soft">
-              {pendientes} cuota{pendientes > 1 ? 's' : ''} pendiente{pendientes > 1 ? 's' : ''}
-            </p>
-          )}
+          <div className="flex gap-3 text-xs text-ink-soft">
+            {enRevision > 0 && (
+              <span className="text-gold font-medium">{enRevision} por verificar</span>
+            )}
+            {pendientes > 0 && (
+              <span>{pendientes} pendiente{pendientes > 1 ? 's' : ''}</span>
+            )}
+          </div>
         </div>
+
+        {prestamo && !esMaestro && (
+          <BotonOfrecerRenovacion prestamo={prestamo} clienteId={prestamo.clienteId} />
+        )}
       </header>
 
       <main className="mx-auto max-w-lg px-4 py-5">
@@ -94,10 +160,12 @@ export default function ChecklistCuotas() {
         <ul className="space-y-3">
           {cuotas.map((cuota) => {
             const pagada = cuota.estado === ESTADO_CUOTA.PAGADO
+            const porVerificar = cuota.estado === ESTADO_CUOTA.POR_VERIFICAR
+            const esPendiente = cuota.estado === ESTADO_CUOTA.PENDIENTE
             const fechaVenc = cuota.fechaVencimiento?.toDate
               ? cuota.fechaVencimiento.toDate()
               : new Date(cuota.fechaVencimiento)
-            const vencida = !pagada && fechaVenc < new Date()
+            const vencida = esPendiente && fechaVenc < new Date()
 
             return (
               <li
@@ -105,6 +173,8 @@ export default function ChecklistCuotas() {
                 className={`rounded-2xl border p-4 flex items-center justify-between gap-3 ${
                   pagada
                     ? 'border-success/30 bg-success-soft'
+                    : porVerificar
+                    ? 'border-gold/30 bg-gold-soft'
                     : vencida
                     ? 'border-danger/30 bg-danger-soft'
                     : 'border-line bg-surface'
@@ -114,26 +184,28 @@ export default function ChecklistCuotas() {
                   <div
                     className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${
                       pagada ? 'bg-success text-white'
+                        : porVerificar ? 'bg-gold text-white'
                         : vencida ? 'bg-danger text-white'
                         : 'bg-line text-ink-soft'
                     }`}
                   >
-                    {pagada ? '✓' : cuota.numero}
+                    {pagada ? '✓' : porVerificar ? '⏳' : cuota.numero}
                   </div>
                   <div className="min-w-0">
                     <p className={`text-sm font-medium ${
-                      pagada ? 'text-success' : vencida ? 'text-danger' : 'text-ink'
+                      pagada ? 'text-success' : porVerificar ? 'text-gold' : vencida ? 'text-danger' : 'text-ink'
                     }`}>
                       {formatFecha(fechaVenc)}
                       {vencida && <span className="ml-2 text-xs font-semibold">VENCIDA</span>}
+                      {porVerificar && <span className="ml-2 text-xs font-semibold">EN REVISION</span>}
                     </p>
-                    {pagada && cuota.metodoPago === METODO_PAGO.YAPE && cuota.codigoYape && (
-                      <p className="font-mono text-xs text-success/70 truncate">
+                    {(pagada || porVerificar) && cuota.metodoPago === METODO_PAGO.YAPE && cuota.codigoYape && (
+                      <p className="font-mono text-xs opacity-70 truncate">
                         Yape: {cuota.codigoYape}
                       </p>
                     )}
-                    {pagada && cuota.metodoPago === METODO_PAGO.EFECTIVO && (
-                      <p className="text-xs text-success/70">Efectivo</p>
+                    {(pagada || porVerificar) && cuota.metodoPago === METODO_PAGO.EFECTIVO && (
+                      <p className="text-xs opacity-70">Efectivo</p>
                     )}
                   </div>
                 </div>
@@ -142,7 +214,7 @@ export default function ChecklistCuotas() {
                   <span className="money text-base font-semibold text-ink">
                     S/ {cuota.monto.toFixed(2)}
                   </span>
-                  {!pagada && (
+                  {esPendiente && !esMaestro && (
                     <button
                       onClick={() => setCuotaActiva(cuota)}
                       className={`rounded-xl px-3 py-2 text-sm font-medium text-white active:scale-95 transition-transform ${

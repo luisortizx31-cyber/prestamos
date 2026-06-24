@@ -46,9 +46,32 @@ export const ESTADO_CLIENTE_STYLES = {
   },
 }
 
+// Estados de una cuota. El flujo es SIEMPRE en dos pasos:
+// pendiente -> por_verificar (el comisionista registra el cobro en la
+// calle) -> pagado (el Maestro confirma que el dinero llego a caja).
+// El comisionista NUNCA puede pasar una cuota directo a "pagado" — eso
+// se aplica tanto en la UI como en las Security Rules.
 export const ESTADO_CUOTA = {
   PENDIENTE: 'pendiente',
+  POR_VERIFICAR: 'por_verificar',
   PAGADO: 'pagado',
+}
+
+export const ESTADO_CUOTA_LABELS = {
+  [ESTADO_CUOTA.PENDIENTE]: 'Pendiente',
+  [ESTADO_CUOTA.POR_VERIFICAR]: 'Por verificar',
+  [ESTADO_CUOTA.PAGADO]: 'Pagado',
+}
+
+export const ESTADO_CUOTA_STYLES = {
+  [ESTADO_CUOTA.POR_VERIFICAR]: {
+    bg: 'bg-gold-soft',
+    text: 'text-gold',
+  },
+  [ESTADO_CUOTA.PAGADO]: {
+    bg: 'bg-success-soft',
+    text: 'text-success',
+  },
 }
 
 export const METODO_PAGO = {

@@ -151,12 +151,16 @@ export function ModalCobro({ cuota, prestamoId, comisionistaId, clienteId, onCer
                 {error}
               </p>
             )}
+            <p className="mt-3 text-xs text-ink-soft">
+              El cobro quedara "por verificar" hasta que el administrador
+              confirme que el dinero llego a caja.
+            </p>
             <button
               onClick={confirmar}
               disabled={!codigo.trim() || !!advertencia || verificando || enviando}
-              className="mt-4 w-full rounded-xl bg-brand py-3.5 font-semibold text-white disabled:opacity-50 active:scale-[0.99] transition-transform"
+              className="mt-3 w-full rounded-xl bg-brand py-3.5 font-semibold text-white disabled:opacity-50 active:scale-[0.99] transition-transform"
             >
-              {enviando ? 'Registrando...' : 'Confirmar pago Yape'}
+              {enviando ? 'Registrando...' : 'Registrar cobro Yape'}
             </button>
           </div>
         )}
@@ -178,12 +182,16 @@ export function ModalCobro({ cuota, prestamoId, comisionistaId, clienteId, onCer
                 {error}
               </p>
             )}
+            <p className="mb-3 text-xs text-ink-soft">
+              El cobro quedara "por verificar" hasta que entregues el
+              efectivo y el administrador lo confirme en caja.
+            </p>
             <button
               onClick={confirmar}
               disabled={enviando}
               className="w-full rounded-xl bg-brand py-3.5 font-semibold text-white disabled:opacity-50 active:scale-[0.99] transition-transform"
             >
-              {enviando ? 'Registrando...' : 'Confirmar cobro en efectivo'}
+              {enviando ? 'Registrando...' : 'Registrar cobro en efectivo'}
             </button>
           </div>
         )}

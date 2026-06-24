@@ -1,7 +1,11 @@
-import { useState, useMemo } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useState, useMemo, useEffect } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { crearPrestamoConCronograma } from '../../services/prestamosService'
+import {
+  crearPrestamoConCronograma,
+  obtenerPrestamo,
+  marcarPrestamoRenovado,
+} from '../../services/prestamosService'
 import { calcularMontos, generarCronograma } from '../../utils/calcularCronograma'
 import { TIPO_CUOTA, TIPO_CUOTA_LABELS } from '../../models/prestamo'
 
@@ -9,8 +13,17 @@ const HOY = new Date().toISOString().split('T')[0]
 
 export default function RegistroPrestamo() {
   const { clienteId } = useParams()
+  const [searchParams] = useSearchParams()
+  const prestamoOrigenId = searchParams.get('renovarDe')
   const { usuarioAuth } = useAuth()
   const navigate = useNavigate()
+
+  const [prestamoOrigen, setPrestamoOrigen] = useState(null)
+
+  useEffect(() => {
+    if (!prestamoOrigenId) return
+    obtenerPrestamo(prestamoOrigenId).then(setPrestamoOrigen).catch(console.error)
+  }, [prestamoOrigenId])
 
   const [form, setForm] = useState({
     montoPrestado: '',
@@ -75,7 +88,16 @@ export default function RegistroPrestamo() {
         numeroCuotas: parseInt(form.numeroCuotas) || 1,
         fechaInicio: new Date(form.fechaInicio),
         fechaEspecifica: form.fechaEspecifica ? new Date(form.fechaEspecifica) : null,
+        prestamoOrigenId: prestamoOrigenId || null,
       })
+
+      // Si esto es una renovacion, cerramos el ciclo marcando el
+      // prestamo anterior como renovado (no vuelve a ofrecerse, y queda
+      // trazabilidad de cual prestamo nuevo lo reemplazo).
+      if (prestamoOrigenId) {
+        await marcarPrestamoRenovado(prestamoOrigenId, prestamoId)
+      }
+
       navigate(`/prestamos/${prestamoId}/cuotas`)
     } catch (err) {
       console.error('[RegistroPrestamo]', err)
@@ -98,13 +120,32 @@ export default function RegistroPrestamo() {
         </button>
         <div>
           <p className="font-mono text-xs tracking-widest text-ink-soft uppercase">
-            Nuevo prestamo
+            {prestamoOrigenId ? 'Renovacion' : 'Nuevo prestamo'}
           </p>
-          <h1 className="text-lg font-semibold text-ink">Registrar prestamo</h1>
+          <h1 className="text-lg font-semibold text-ink">
+            {prestamoOrigenId ? 'Renovar prestamo' : 'Registrar prestamo'}
+          </h1>
         </div>
       </header>
 
       <div className="mx-auto max-w-lg px-4 py-6 space-y-5">
+        {prestamoOrigen && (
+          <div className="rounded-2xl border-2 border-gold bg-gold-soft p-4">
+            <p className="text-sm font-semibold text-gold mb-1">⭐ Renovando prestamo anterior</p>
+            <div className="text-sm text-gold/90 space-y-0.5">
+              <p>
+                Cuotas pagadas: {prestamoOrigen.cuotasPagadas || 0} de {prestamoOrigen.totalCuotas || 0}
+              </p>
+              <p className="money">
+                Capital anterior: S/ {(prestamoOrigen.montoPrestado || 0).toFixed(2)}
+              </p>
+            </div>
+            <p className="text-xs text-gold/70 mt-2">
+              Al guardar este nuevo prestamo, el anterior quedara marcado como renovado.
+            </p>
+          </div>
+        )}
+
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="space-y-5">
           <section className="rounded-2xl border border-line bg-surface p-5 space-y-4">

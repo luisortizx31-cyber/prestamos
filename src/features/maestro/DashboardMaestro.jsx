@@ -72,6 +72,17 @@ export default function DashboardMaestro() {
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-6">
+        <Link
+          to="/conciliacion"
+          className="mb-5 flex items-center justify-between rounded-2xl bg-gold p-4 text-white active:scale-[0.99] transition-transform"
+        >
+          <div>
+            <p className="text-xs uppercase tracking-wide text-white/70">Caja</p>
+            <p className="font-semibold">Conciliacion de cobros por verificar</p>
+          </div>
+          <span className="text-xl">→</span>
+        </Link>
+
         <div className="mb-4 flex justify-end">
           <Link
             to="/comisionistas/nuevo"
@@ -99,21 +110,26 @@ export default function DashboardMaestro() {
 
         <ul className="space-y-3">
           {filas.map((f) => (
-            <li
-              key={f.uid ?? f.id}
-              className="flex items-center justify-between rounded-2xl border border-line bg-surface p-4"
-            >
-              <div>
-                <p className="font-medium text-ink">{f.nombre}</p>
-                <p className="text-sm text-ink-soft">
-                  {f.cantidadPrestamos} préstamo{f.cantidadPrestamos === 1 ? '' : 's'} ·
-                  seguro acumulado{' '}
-                  <span className="money">S/ {f.totalSeguro.toFixed(2)}</span>
-                </p>
-              </div>
-              <p className="money text-lg font-semibold text-ink">
-                S/ {f.totalPrestado.toFixed(2)}
-              </p>
+            <li key={f.uid ?? f.id}>
+              <Link
+                to={`/comisionistas/${f.uid ?? f.id}`}
+                className="flex items-center justify-between rounded-2xl border border-line bg-surface p-4 active:bg-paper transition-colors"
+              >
+                <div>
+                  <p className="font-medium text-ink">{f.nombre}</p>
+                  <p className="text-sm text-ink-soft">
+                    {f.cantidadPrestamos} préstamo{f.cantidadPrestamos === 1 ? '' : 's'} ·
+                    seguro acumulado{' '}
+                    <span className="money">S/ {f.totalSeguro.toFixed(2)}</span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <p className="money text-lg font-semibold text-ink">
+                    S/ {f.totalPrestado.toFixed(2)}
+                  </p>
+                  <span className="text-ink-soft text-lg">›</span>
+                </div>
+              </Link>
             </li>
           ))}
         </ul>

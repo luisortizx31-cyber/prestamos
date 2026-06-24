@@ -2,12 +2,11 @@ import {
   doc,
   getDoc,
   runTransaction,
-  increment,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { recalcularEstadoCliente } from './clienteEstadoService'
-import { METODO_PAGO } from '../models/prestamo'
+import { METODO_PAGO, ESTADO_CUOTA } from '../models/prestamo'
 
 export class CodigoYapeDuplicadoError extends Error {
   constructor(codigoYape) {
@@ -27,9 +26,18 @@ export async function existeCodigoYape(codigoYape) {
 }
 
 /**
- * Pago con Yape: atomico, con validacion anti-duplicado, incrementa el
- * contador de cuotas pagadas del prestamo, y al final recalcula el
- * estado del cliente (buen pagador / con retrasos / moroso).
+ * IMPORTANTE - Flujo en dos pasos (conciliacion de caja):
+ * Estas funciones las usa el COMISIONISTA desde la calle. NUNCA marcan
+ * la cuota como "pagado" directamente — la dejan en "por_verificar".
+ * Solo el Maestro, desde conciliacionService.js, puede confirmar que el
+ * dinero llego a caja y mover la cuota a "pagado" (y ahi recien se
+ * incrementa el contador cuotasPagadas del prestamo). Esto esta
+ * reforzado tambien en las Security Rules, no solo aqui en el cliente.
+ */
+
+/**
+ * Pago con Yape: atomico, con validacion anti-duplicado. Deja la cuota
+ * en estado "por_verificar", a la espera de que el Maestro la apruebe.
  */
 export async function registrarPagoConValidacionYape({
   codigoYape,
@@ -42,7 +50,6 @@ export async function registrarPagoConValidacionYape({
   const codigo = codigoYape.trim()
   const yapeRef = doc(db, 'codigos_yape_registrados', codigo)
   const cuotaRef = doc(db, 'prestamos', prestamoId, 'cuotas', cuotaId)
-  const prestamoRef = doc(db, 'prestamos', prestamoId)
 
   await runTransaction(db, async (transaction) => {
     const yapeSnap = await transaction.get(yapeRef)
@@ -50,9 +57,8 @@ export async function registrarPagoConValidacionYape({
 
     const cuotaSnap = await transaction.get(cuotaRef)
     if (!cuotaSnap.exists()) throw new Error(`La cuota ${cuotaId} no existe.`)
-    if (cuotaSnap.data().estado === 'pagado') {
-      // Evita doble conteo si el usuario llega a tocar "Confirmar" dos veces
-      throw new Error('Esta cuota ya fue registrada como pagada.')
+    if (cuotaSnap.data().estado !== ESTADO_CUOTA.PENDIENTE) {
+      throw new Error('Esta cuota ya tiene un cobro registrado.')
     }
 
     transaction.set(yapeRef, {
@@ -65,21 +71,16 @@ export async function registrarPagoConValidacionYape({
     })
 
     transaction.update(cuotaRef, {
-      estado: 'pagado',
+      estado: ESTADO_CUOTA.POR_VERIFICAR,
       metodoPago: METODO_PAGO.YAPE,
       codigoYape: codigo,
       fechaPago: serverTimestamp(),
     })
-
-    transaction.update(prestamoRef, {
-      cuotasPagadas: increment(1),
-    })
   })
 
-  // Fuera de la transaccion: el pago ya quedo guardado, esto solo
-  // actualiza la etiqueta visual del cliente. Si falla, no revierte el
-  // pago — simplemente la etiqueta se actualizara la proxima vez que
-  // alguien vea el perfil del cliente.
+  // Fuera de la transaccion: si falla, no revierte el registro del
+  // cobro — la etiqueta del cliente se autocorrige en la proxima visita
+  // a su perfil (ver DetalleCliente.jsx).
   try {
     await recalcularEstadoCliente(clienteId)
   } catch (err) {
@@ -88,9 +89,9 @@ export async function registrarPagoConValidacionYape({
 }
 
 /**
- * Pago en efectivo: tambien transaccional (lee la cuota antes de
- * marcarla, para evitar doble conteo si se toca "Confirmar" dos veces),
- * incrementa cuotasPagadas y recalcula el estado del cliente.
+ * Pago en efectivo: tambien transaccional. Igual que con Yape, deja la
+ * cuota en "por_verificar" — el Maestro confirma cuando reciba el
+ * efectivo en caja.
  */
 export async function registrarPagoEfectivo({
   prestamoId,
@@ -100,26 +101,21 @@ export async function registrarPagoEfectivo({
   monto,
 }) {
   const cuotaRef = doc(db, 'prestamos', prestamoId, 'cuotas', cuotaId)
-  const prestamoRef = doc(db, 'prestamos', prestamoId)
 
   await runTransaction(db, async (transaction) => {
     const cuotaSnap = await transaction.get(cuotaRef)
     if (!cuotaSnap.exists()) throw new Error(`La cuota ${cuotaId} no existe.`)
-    if (cuotaSnap.data().estado === 'pagado') {
-      throw new Error('Esta cuota ya fue registrada como pagada.')
+    if (cuotaSnap.data().estado !== ESTADO_CUOTA.PENDIENTE) {
+      throw new Error('Esta cuota ya tiene un cobro registrado.')
     }
 
     transaction.update(cuotaRef, {
-      estado: 'pagado',
+      estado: ESTADO_CUOTA.POR_VERIFICAR,
       metodoPago: METODO_PAGO.EFECTIVO,
       codigoYape: null,
       montoEfectivo: monto,
       comisionistaId,
       fechaPago: serverTimestamp(),
-    })
-
-    transaction.update(prestamoRef, {
-      cuotasPagadas: increment(1),
     })
   })
 

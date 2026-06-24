@@ -6,6 +6,7 @@ import { ROLES } from '../models/roles'
 import LoginPage from '../features/auth/LoginPage'
 import DashboardMaestro from '../features/maestro/DashboardMaestro'
 import RegistroComisionista from '../features/maestro/RegistroComisionista'
+import ConciliacionCaja from '../features/maestro/ConciliacionCaja'
 import DashboardComisionista from '../features/comisionista/DashboardComisionista'
 import RegistroCliente from '../features/comisionista/RegistroCliente'
 import DetalleCliente from '../features/comisionista/DetalleCliente'
@@ -35,6 +36,15 @@ export function AppRouter() {
           element={
             <ProtectedRoute allowedRoles={[ROLES.MASTER]}>
               <RegistroComisionista />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/conciliacion"
+          element={
+            <ProtectedRoute allowedRoles={[ROLES.MASTER]}>
+              <ConciliacionCaja />
             </ProtectedRoute>
           }
         />
