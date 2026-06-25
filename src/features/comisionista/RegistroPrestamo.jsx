@@ -6,7 +6,7 @@ import {
   obtenerPrestamo,
   marcarPrestamoRenovado,
 } from '../../services/prestamosService'
-import { calcularMontos, generarCronograma } from '../../utils/calcularCronograma'
+import { calcularMontos, generarCronograma, descripcionSeguro } from '../../utils/calcularCronograma'
 import { TIPO_CUOTA, TIPO_CUOTA_LABELS } from '../../models/prestamo'
 
 const HOY = new Date().toISOString().split('T')[0]
@@ -28,7 +28,6 @@ export default function RegistroPrestamo() {
   const [form, setForm] = useState({
     montoPrestado: '',
     tasaInteres: '',
-    porcentajeSeguro: '',
     tipoCuota: TIPO_CUOTA.SEMANAL,
     numeroCuotas: '',
     fechaInicio: HOY,
@@ -42,25 +41,24 @@ export default function RegistroPrestamo() {
   }
 
   // Preview en vivo: recalcula cada vez que cambia el formulario.
-  // useMemo evita recalcular si los valores no cambiaron.
+  // El seguro ya NO se ingresa a mano: calcularMontos() lo determina
+  // solo segun la regla fija del negocio (3% o tarifa plana S/10).
   const preview = useMemo(() => {
     const monto = parseFloat(form.montoPrestado)
     const tasa = parseFloat(form.tasaInteres)
-    const seguro = parseFloat(form.porcentajeSeguro)
     const cuotas = parseInt(form.numeroCuotas)
 
-    // El seguro es OPCIONAL: si el campo está vacío se asume 0
     if (!monto || !tasa) return null
-    const seguroFinal = isNaN(seguro) ? 0 : seguro
 
     try {
-      const montos = calcularMontos(monto, tasa, seguroFinal)
+      const montos = calcularMontos(monto, tasa)
 
       const esFechaEspecifica = form.tipoCuota === TIPO_CUOTA.FECHA_ESPECIFICA
       if (!esFechaEspecifica && (!cuotas || cuotas < 1)) return { montos, cronograma: null }
 
       const cronograma = generarCronograma({
         montoTotalAPagar: montos.montoTotalAPagar,
+        montoSeguro: montos.montoSeguro,
         tipoCuota: form.tipoCuota,
         numeroCuotas: esFechaEspecifica ? 1 : cuotas,
         fechaInicio: new Date(form.fechaInicio),
@@ -83,7 +81,6 @@ export default function RegistroPrestamo() {
         comisionistaId: usuarioAuth.uid,
         montoPrestado: parseFloat(form.montoPrestado),
         tasaInteres: parseFloat(form.tasaInteres),
-        porcentajeSeguro: parseFloat(form.porcentajeSeguro) || 0,
         tipoCuota: form.tipoCuota,
         numeroCuotas: parseInt(form.numeroCuotas) || 1,
         fechaInicio: new Date(form.fechaInicio),
@@ -108,6 +105,7 @@ export default function RegistroPrestamo() {
   }
 
   const esFechaEspecifica = form.tipoCuota === TIPO_CUOTA.FECHA_ESPECIFICA
+  const monto = parseFloat(form.montoPrestado) || 0
 
   return (
     <div className="min-h-screen bg-paper pb-16">
@@ -166,31 +164,25 @@ export default function RegistroPrestamo() {
               />
             </Campo>
 
-            <div className="grid grid-cols-2 gap-3">
-              <Campo label="Tasa de interes %">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  required
-                  value={form.tasaInteres}
-                  onChange={(e) => set('tasaInteres', e.target.value)}
-                  placeholder="10"
-                  className={inputClass}
-                />
-              </Campo>
-              <Campo label="% Seguro">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={form.porcentajeSeguro}
-                  onChange={(e) => set('porcentajeSeguro', e.target.value)}
-                  placeholder="3"
-                  className={inputClass}
-                />
-              </Campo>
-            </div>
+            {monto > 0 && (
+              <p className="text-xs text-ink-soft -mt-2">
+                Seguro automatico: <span className="font-medium text-ink">{descripcionSeguro(monto)}</span>
+                {' '}(prestamos menores a S/ 330 pagan 3%; S/ 330 a mas, tarifa fija de S/ 10)
+              </p>
+            )}
+
+            <Campo label="Tasa de interes %">
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                required
+                value={form.tasaInteres}
+                onChange={(e) => set('tasaInteres', e.target.value)}
+                placeholder="10"
+                className={inputClass}
+              />
+            </Campo>
 
             <Campo label="Tipo de cuota">
               <select
@@ -255,9 +247,9 @@ export default function RegistroPrestamo() {
                   valor={preview.montos.montoInteres}
                 />
                 <FilaResumen
-                  label={`Seguro (${form.porcentajeSeguro || 0}%)`}
+                  label={`Seguro (${descripcionSeguro(monto)})`}
                   valor={preview.montos.montoSeguro}
-                  nota="Se cobra aparte"
+                  nota="incluido en la 1ra cuota"
                 />
                 <div className="border-t border-brand/20 pt-2">
                   <FilaResumen
@@ -286,6 +278,9 @@ export default function RegistroPrestamo() {
                       <span className="text-sm text-ink">
                         {formatFecha(c.fechaVencimiento)}
                       </span>
+                      {c.numero === 1 && preview.montos.montoSeguro > 0 && (
+                        <span className="ml-2 text-xs text-gold">+ seguro</span>
+                      )}
                     </div>
                     <span className="money text-sm font-medium text-ink">
                       S/ {c.monto.toFixed(2)}

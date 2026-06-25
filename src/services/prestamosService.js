@@ -25,7 +25,6 @@ import { ESTADO_SOLICITUD } from '../models/prestamo'
  * @param {string} params.comisionistaId
  * @param {number} params.montoPrestado
  * @param {number} params.tasaInteres        porcentaje
- * @param {number} params.porcentajeSeguro    porcentaje
  * @param {string} params.tipoCuota           ver TIPO_CUOTA
  * @param {number} [params.numeroCuotas]
  * @param {Date}   params.fechaInicio
@@ -39,7 +38,6 @@ export async function crearPrestamoConCronograma(params) {
     comisionistaId,
     montoPrestado,
     tasaInteres,
-    porcentajeSeguro,
     tipoCuota,
     numeroCuotas,
     fechaInicio,
@@ -47,9 +45,13 @@ export async function crearPrestamoConCronograma(params) {
     prestamoOrigenId,
   } = params
 
-  const montos = calcularMontos(montoPrestado, tasaInteres, porcentajeSeguro)
+  // El seguro ya no se ingresa a mano: se calcula con la regla fija del
+  // negocio (3% si el prestamo es menor a S/330, tarifa plana de S/10
+  // si es mayor) dentro de calcularMontos().
+  const montos = calcularMontos(montoPrestado, tasaInteres)
   const cronograma = generarCronograma({
     montoTotalAPagar: montos.montoTotalAPagar,
+    montoSeguro: montos.montoSeguro,
     tipoCuota,
     numeroCuotas,
     fechaInicio,
@@ -63,7 +65,6 @@ export async function crearPrestamoConCronograma(params) {
     clienteId,
     comisionistaId,
     tasaInteres,
-    porcentajeSeguro,
     tipoCuota,
     fechaInicio,
     ...montos,

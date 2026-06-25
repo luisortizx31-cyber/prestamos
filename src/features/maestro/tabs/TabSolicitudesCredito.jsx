@@ -8,6 +8,7 @@ import {
   rechazarSolicitudCredito,
 } from '../../../services/solicitudesCreditoService'
 import { ESTADO_SOLICITUD, TIPO_CUOTA_LABELS } from '../../../models/prestamo'
+import { BotonExportarExcel } from '../../shared/BotonExportarExcel'
 
 export default function TabSolicitudesCredito() {
   const [solicitudes, setSolicitudes] = useState([])
@@ -121,7 +122,27 @@ export default function TabSolicitudesCredito() {
   }
 
   return (
-    <ul className="space-y-3">
+    <div>
+      <div className="flex justify-end mb-3">
+        <BotonExportarExcel
+          nombreArchivo="solicitudes_credito_pendientes"
+          nombreHoja="Solicitudes"
+          label="Excel"
+          columnas={[
+            { header: 'Cliente', key: 'clienteNombre', width: 25 },
+            { header: 'Comisionista', key: 'comisionistaNombre', width: 25 },
+            { header: 'Monto (S/)', key: 'montoPrestado', width: 14 },
+            { header: 'Interes %', key: 'tasaInteres', width: 12 },
+            { header: 'Tipo de cuota', key: 'tipoCuotaTexto', width: 16 },
+            { header: 'Cuotas', key: 'totalCuotas', width: 10 },
+          ]}
+          filas={solicitudes.map((s) => ({
+            ...s,
+            tipoCuotaTexto: TIPO_CUOTA_LABELS[s.tipoCuota] || s.tipoCuota,
+          }))}
+        />
+      </div>
+      <ul className="space-y-3">
       {solicitudes.map((s) => (
         <li key={s.id} className="rounded-2xl border-2 border-gold bg-gold-soft p-4">
           <div className="flex items-start justify-between mb-2">
@@ -195,6 +216,7 @@ export default function TabSolicitudesCredito() {
           )}
         </li>
       ))}
-    </ul>
+      </ul>
+    </div>
   )
 }

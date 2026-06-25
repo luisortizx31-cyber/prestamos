@@ -1,7 +1,9 @@
 // Regla de negocio: se ofrece renovacion cuando el prestamo sigue
-// VIGENTE (todavia no se termino de pagar) Y el cliente ya pago al
-// menos este numero de cuotas. Ajustable aqui sin tocar componentes.
-export const CUOTAS_PAGADAS_PARA_RENOVACION = 3
+// VIGENTE (todavia no se termino de pagar) Y el cliente ya pago Y el
+// Maestro ya valido (aprobo) al menos esta cantidad de cuotas. El
+// "aprobo" es clave: cuotasPagadas solo se incrementa cuando el
+// Maestro confirma el cobro (ver conciliacionService.js), nunca antes.
+export const CUOTAS_PAGADAS_PARA_RENOVACION = 1
 
 /**
  * @param {object} prestamo  documento de /prestamos/{id} (necesita

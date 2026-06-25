@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { listarComisionistas } from '../../../services/comisionistasService'
 import { listarPrestamosPorComisionista } from '../../../services/prestamosService'
+import { BotonExportarExcel } from '../../shared/BotonExportarExcel'
 
 export default function TabComisionistas() {
   const [filas, setFilas] = useState([])
@@ -40,7 +41,21 @@ export default function TabComisionistas() {
 
   return (
     <div>
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex justify-end gap-2">
+        <BotonExportarExcel
+          nombreArchivo="comisionistas"
+          nombreHoja="Comisionistas"
+          label="Excel"
+          columnas={[
+            { header: 'Nombre', key: 'nombre', width: 25 },
+            { header: 'DNI', key: 'dni', width: 14 },
+            { header: 'Telefono', key: 'telefono', width: 16 },
+            { header: 'Cantidad prestamos', key: 'cantidadPrestamos', width: 18 },
+            { header: 'Total prestado (S/)', key: 'totalPrestado', width: 18 },
+            { header: 'Seguro acumulado (S/)', key: 'totalSeguro', width: 20 },
+          ]}
+          filas={filas}
+        />
         <Link
           to="/comisionistas/nuevo"
           className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white"

@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from '../../../config/firebase'
 import { EtiquetaEstadoCliente } from '../../shared/EtiquetaEstadoCliente'
+import { BotonExportarExcel } from '../../shared/BotonExportarExcel'
+import { ESTADO_CLIENTE_LABELS } from '../../../models/prestamo'
 
 export default function TabCobranza() {
   const [clientes, setClientes] = useState([])
@@ -36,7 +38,6 @@ export default function TabCobranza() {
 
   useEffect(() => {
     cargar()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Filtro en vivo por nombre o DNI (instantaneo, sobre los datos ya
@@ -92,13 +93,32 @@ export default function TabCobranza() {
 
   return (
     <div>
-      <input
-        type="text"
-        value={busqueda}
-        onChange={(e) => setBusqueda(e.target.value)}
-        placeholder="Buscar por nombre o DNI..."
-        className="w-full mb-5 rounded-xl border border-line bg-surface px-4 py-3 text-ink outline-none focus-visible:border-brand"
-      />
+      <div className="flex items-center justify-between gap-2 mb-5">
+        <input
+          type="text"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por nombre o DNI..."
+          className="flex-1 rounded-xl border border-line bg-surface px-4 py-3 text-ink outline-none focus-visible:border-brand"
+        />
+        <BotonExportarExcel
+          nombreArchivo="clientes_cobranza"
+          nombreHoja="Clientes"
+          label="Excel"
+          columnas={[
+            { header: 'Cliente', key: 'nombre', width: 25 },
+            { header: 'DNI', key: 'dni', width: 14 },
+            { header: 'Comisionista', key: 'comisionistaNombre', width: 25 },
+            { header: 'Estado', key: 'estadoTexto', width: 18 },
+          ]}
+          filas={clientesFiltrados.map((c) => ({
+            ...c,
+            comisionistaNombre:
+              comisionistas.find((com) => com.id === c.comisionistaId)?.nombre || 'Comisionista',
+            estadoTexto: ESTADO_CLIENTE_LABELS[c.estado] || c.estado || '',
+          }))}
+        />
+      </div>
 
       {grupos.length === 0 && (
         <div className="rounded-2xl border border-dashed border-line p-8 text-center text-ink-soft">
