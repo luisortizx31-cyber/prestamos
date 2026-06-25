@@ -7,7 +7,7 @@ import { recalcularEstadoCliente } from '../../services/clienteEstadoService'
 import { EtiquetaEstadoCliente } from '../shared/EtiquetaEstadoCliente'
 import { BotonOfrecerRenovacion } from '../shared/BotonOfrecerRenovacion'
 import { useRole } from '../../hooks/useRole'
-import { TIPO_CUOTA_LABELS } from '../../models/prestamo'
+import { TIPO_CUOTA_LABELS, ESTADO_SOLICITUD } from '../../models/prestamo'
 
 export default function DetalleCliente() {
   const { clienteId } = useParams()
@@ -143,12 +143,22 @@ export default function DetalleCliente() {
                     </div>
                     <span
                       className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                        pagadas === total && total > 0
+                        p.estadoSolicitud === ESTADO_SOLICITUD.PENDIENTE
+                          ? 'bg-gold-soft text-gold'
+                          : p.estadoSolicitud === ESTADO_SOLICITUD.RECHAZADO
+                          ? 'bg-danger-soft text-danger'
+                          : pagadas === total && total > 0
                           ? 'bg-success-soft text-success'
                           : 'bg-warning-soft text-warning'
                       }`}
                     >
-                      {pagadas === total && total > 0 ? 'Cancelado' : 'Activo'}
+                      {p.estadoSolicitud === ESTADO_SOLICITUD.PENDIENTE
+                        ? 'Pendiente'
+                        : p.estadoSolicitud === ESTADO_SOLICITUD.RECHAZADO
+                        ? 'Rechazado'
+                        : pagadas === total && total > 0
+                        ? 'Cancelado'
+                        : 'Activo'}
                     </span>
                   </div>
 

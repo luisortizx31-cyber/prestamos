@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useRole } from '../../hooks/useRole'
 import { ModalCobro } from '../shared/ModalCobro'
 import { BotonOfrecerRenovacion } from '../shared/BotonOfrecerRenovacion'
-import { ESTADO_CUOTA, METODO_PAGO, TIPO_CUOTA_LABELS } from '../../models/prestamo'
+import { ESTADO_CUOTA, METODO_PAGO, TIPO_CUOTA_LABELS, ESTADO_SOLICITUD, solicitudEstaAprobada } from '../../models/prestamo'
 
 export default function ChecklistCuotas() {
   const { prestamoId } = useParams()
@@ -162,6 +162,27 @@ export default function ChecklistCuotas() {
         )}
       </header>
 
+      {prestamo?.estadoSolicitud === ESTADO_SOLICITUD.PENDIENTE && (
+        <div className="mx-4 mt-4 rounded-2xl border-2 border-gold bg-gold-soft p-4">
+          <p className="text-sm font-semibold text-gold">⏳ Pendiente de aprobacion</p>
+          <p className="text-xs text-gold/80 mt-1">
+            Este credito todavia no fue aprobado por el administrador. No
+            puedes cobrar ninguna cuota hasta que lo apruebe.
+          </p>
+        </div>
+      )}
+
+      {prestamo?.estadoSolicitud === ESTADO_SOLICITUD.RECHAZADO && (
+        <div className="mx-4 mt-4 rounded-2xl border-2 border-danger bg-danger-soft p-4">
+          <p className="text-sm font-semibold text-danger">✕ Credito rechazado</p>
+          {prestamo.motivoRechazoCredito && (
+            <p className="text-xs text-danger/80 mt-1">
+              Motivo: {prestamo.motivoRechazoCredito}
+            </p>
+          )}
+        </div>
+      )}
+
       <main className="mx-auto max-w-lg px-4 py-5">
         {cuotas.length === 0 && (
           <p className="text-center text-ink-soft py-10">No hay cuotas registradas.</p>
@@ -223,7 +244,7 @@ export default function ChecklistCuotas() {
                   <span className="money text-base font-semibold text-ink">
                     S/ {cuota.monto.toFixed(2)}
                   </span>
-                  {esPendiente && !esMaestro && (
+                  {esPendiente && !esMaestro && solicitudEstaAprobada(prestamo) && (
                     <button
                       onClick={() => setCuotaActiva(cuota)}
                       className={`rounded-xl px-3 py-2 text-sm font-medium text-white active:scale-95 transition-transform ${

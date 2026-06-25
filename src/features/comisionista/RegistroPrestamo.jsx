@@ -300,12 +300,17 @@ export default function RegistroPrestamo() {
             <p className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger">{error}</p>
           )}
 
+          <p className="text-xs text-ink-soft text-center">
+            El credito quedara "pendiente de aprobacion". No podras cobrar
+            ninguna cuota hasta que el administrador lo apruebe.
+          </p>
+
           <button
             type="submit"
             disabled={enviando || !preview?.cronograma}
             className="w-full rounded-xl bg-brand py-3 font-semibold text-white disabled:opacity-50 active:scale-[0.99] transition-transform"
           >
-            {enviando ? 'Guardando...' : 'Confirmar y guardar prestamo'}
+            {enviando ? 'Enviando...' : 'Enviar solicitud al administrador'}
           </button>
         </form>
       </div>

@@ -78,3 +78,35 @@ export const METODO_PAGO = {
   YAPE: 'yape',
   EFECTIVO: 'efectivo',
 }
+
+// Estado de aprobacion del PRESTAMO (no de la cuota). El comisionista
+// registra la solicitud con las condiciones del credito, pero NO puede
+// soltar el dinero ni cobrar cuotas hasta que el Maestro la apruebe.
+// Los prestamos creados ANTES de este flujo no tienen este campo
+// (undefined) — se tratan como "aprobado" por compatibilidad, ya que
+// ese dinero ya se habia desembolsado en la vida real.
+export const ESTADO_SOLICITUD = {
+  PENDIENTE: 'pendiente',
+  APROBADO: 'aprobado',
+  RECHAZADO: 'rechazado',
+}
+
+export const ESTADO_SOLICITUD_LABELS = {
+  [ESTADO_SOLICITUD.PENDIENTE]: 'Pendiente de aprobacion',
+  [ESTADO_SOLICITUD.APROBADO]: 'Aprobado',
+  [ESTADO_SOLICITUD.RECHAZADO]: 'Rechazado',
+}
+
+/**
+ * Un prestamo se considera habilitado para desembolsar/cobrar si fue
+ * aprobado explicitamente, O si no tiene el campo (prestamos antiguos,
+ * de antes de este flujo, que ya estaban en curso en la vida real).
+ */
+export function solicitudEstaAprobada(prestamo) {
+  if (!prestamo) return false
+  return (
+    prestamo.estadoSolicitud === ESTADO_SOLICITUD.APROBADO ||
+    prestamo.estadoSolicitud === undefined ||
+    prestamo.estadoSolicitud === null
+  )
+}

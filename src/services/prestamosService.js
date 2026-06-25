@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { calcularMontos, generarCronograma } from '../utils/calcularCronograma'
+import { ESTADO_SOLICITUD } from '../models/prestamo'
 
 /**
  * Crea un préstamo y su cronograma de cuotas en una sola escritura por
@@ -69,6 +70,11 @@ export async function crearPrestamoConCronograma(params) {
     totalCuotas: cronograma.length,
     cuotasPagadas: 0,
     prestamoOrigenId: prestamoOrigenId || null,
+    // Solicitud de credito: el comisionista NO puede cobrar ninguna
+    // cuota hasta que el Maestro apruebe (ver Tab "Solicitudes de
+    // Credito" / solicitudesCreditoService.js). Se aplica tanto en la
+    // UI como en las Security Rules.
+    estadoSolicitud: ESTADO_SOLICITUD.PENDIENTE,
     creadoEn: serverTimestamp(),
   })
 
@@ -120,5 +126,15 @@ export async function listarPrestamosPorComisionista(comisionistaId) {
 export async function listarPrestamosPorCliente(clienteId) {
   const q = query(collection(db, 'prestamos'), where('clienteId', '==', clienteId))
   const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+/**
+ * Lista TODOS los préstamos del sistema (uso exclusivo del Maestro:
+ * Tab "Reportes y Caja" y Tab "Solicitudes de Crédito"). La regla de
+ * seguridad de /prestamos ya autoriza esto vía esMaestro().
+ */
+export async function listarTodosLosPrestamos() {
+  const snap = await getDocs(collection(db, 'prestamos'))
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }

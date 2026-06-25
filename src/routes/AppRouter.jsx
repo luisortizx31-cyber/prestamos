@@ -4,7 +4,7 @@ import { ProtectedRoute } from './ProtectedRoute'
 import { ROLES } from '../models/roles'
 
 import LoginPage from '../features/auth/LoginPage'
-import DashboardMaestro from '../features/maestro/DashboardMaestro'
+import PanelMaestro from '../features/maestro/PanelMaestro'
 import RegistroComisionista from '../features/maestro/RegistroComisionista'
 import ConciliacionCaja from '../features/maestro/ConciliacionCaja'
 import DetalleComisionista from '../features/maestro/DetalleComisionista'
@@ -113,7 +113,7 @@ export function AppRouter() {
 
 function RedireccionPorRol() {
   const { role } = useAuth()
-  if (role === ROLES.MASTER) return <DashboardMaestro />
+  if (role === ROLES.MASTER) return <PanelMaestro />
   if (role === ROLES.COLLECTOR) return <DashboardComisionista />
   return (
     <div className="flex min-h-screen items-center justify-center text-ink-soft px-6 text-center">
