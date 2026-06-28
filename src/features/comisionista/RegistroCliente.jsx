@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { crearCliente } from '../../services/clientesService'
+import { consultarDni } from '../../services/dniLookupService'
 
 export default function RegistroCliente() {
   const navigate = useNavigate()
@@ -10,8 +11,35 @@ export default function RegistroCliente() {
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState(null)
 
+  // Validacion de DNI contra RENIEC (apiperu.dev). Es solo informativa:
+  // confirma que el DNI existe, pero el nombre vuelve parcialmente
+  // enmascarado (plan Free), asi que NUNCA se usa para autocompletar
+  // el campo de nombre — el comisionista sigue escribiendo el nombre
+  // completo el mismo, esto es solo una "segunda confirmacion".
+  const [validacionDni, setValidacionDni] = useState(null) // null | 'cargando' | {data} | 'no_encontrado'
+
   function actualizar(campo, valor) {
     setForm((f) => ({ ...f, [campo]: valor }))
+  }
+
+  function handleDni(valor) {
+    const limpio = valor.replace(/\D/g, '').slice(0, 8)
+    actualizar('dni', limpio)
+    setValidacionDni(null) // se vuelve a validar si el usuario sigue editando
+  }
+
+  async function handleBlurDni() {
+    if (form.dni.length !== 8) return
+    setValidacionDni('cargando')
+    try {
+      const data = await consultarDni(form.dni)
+      setValidacionDni({ data })
+    } catch (err) {
+      console.error('[RegistroCliente] Validacion DNI:', err)
+      // Nunca bloqueamos el formulario por esto - puede ser que la
+      // fuente publica simplemente no tenga el dato.
+      setValidacionDni('no_encontrado')
+    }
   }
 
   async function handleSubmit(e) {
@@ -35,12 +63,43 @@ export default function RegistroCliente() {
         <h1 className="mb-4 text-lg font-semibold text-ink">Nuevo cliente</h1>
 
         <form onSubmit={handleSubmit} className="rounded-2xl border border-line bg-surface p-5">
+          <div className="mb-1">
+            <label className="block text-sm font-medium text-ink">DNI</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              required
+              value={form.dni}
+              onChange={(e) => handleDni(e.target.value)}
+              onBlur={handleBlurDni}
+              maxLength={8}
+              placeholder="12345678"
+              className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2.5 font-mono text-ink outline-none focus-visible:border-brand"
+            />
+          </div>
+
+          {/* Validacion informativa - nunca bloquea el formulario */}
+          <div className="mb-4 min-h-[1.25rem]">
+            {validacionDni === 'cargando' && (
+              <p className="text-xs text-ink-soft">Verificando DNI...</p>
+            )}
+            {validacionDni === 'no_encontrado' && (
+              <p className="text-xs text-warning">
+                No se encontro informacion publica de este DNI (puede ser normal).
+              </p>
+            )}
+            {validacionDni?.data && (
+              <p className="text-xs text-success">
+                ✓ DNI valido: {validacionDni.data.nombre_completo}
+              </p>
+            )}
+          </div>
+
           <Campo
             label="Nombre completo"
             value={form.nombre}
             onChange={(v) => actualizar('nombre', v)}
           />
-          <Campo label="DNI" value={form.dni} onChange={(v) => actualizar('dni', v)} />
           <Campo
             label="Teléfono (opcional)"
             value={form.telefono}
