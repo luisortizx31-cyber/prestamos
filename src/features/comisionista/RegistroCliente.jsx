@@ -11,11 +11,9 @@ export default function RegistroCliente() {
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState(null)
 
-  // Validacion de DNI contra RENIEC (apiperu.dev). Es solo informativa:
-  // confirma que el DNI existe, pero el nombre vuelve parcialmente
-  // enmascarado (plan Free), asi que NUNCA se usa para autocompletar
-  // el campo de nombre — el comisionista sigue escribiendo el nombre
-  // completo el mismo, esto es solo una "segunda confirmacion".
+  // Validacion de DNI contra RENIEC (apiperu.dev). El nombre puede venir
+  // parcialmente enmascarado (plan Free, ej. "CA***INA") — se autocompleta
+  // igual y el comisionista corrige a mano si hace falta.
   const [validacionDni, setValidacionDni] = useState(null) // null | 'cargando' | {data} | 'no_encontrado'
 
   function actualizar(campo, valor) {
@@ -34,6 +32,9 @@ export default function RegistroCliente() {
     try {
       const data = await consultarDni(form.dni)
       setValidacionDni({ data })
+      if (data?.nombre_completo) {
+        actualizar('nombre', data.nombre_completo)
+      }
     } catch (err) {
       console.error('[RegistroCliente] Validacion DNI:', err)
       // Nunca bloqueamos el formulario por esto - puede ser que la
