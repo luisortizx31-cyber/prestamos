@@ -16,6 +16,7 @@ export default function TabReportesCaja() {
   const [riesgosos, setRiesgosos] = useState([])
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState(null)
+  const [vista, setVista] = useState('resumen') // 'resumen' | 'comision' | 'riesgosos'
 
   async function cargar() {
     setCargando(true)
@@ -183,6 +184,37 @@ export default function TabReportesCaja() {
         <span className="text-xl">→</span>
       </Link>
 
+      {/* Sub-pestanas: separan el resumen general de las dos vistas que
+          antes vivian mezcladas en el mismo scroll largo. */}
+      <div className="flex gap-2 rounded-xl bg-line/40 p-1">
+        <button
+          onClick={() => setVista('resumen')}
+          className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+            vista === 'resumen' ? 'bg-surface text-ink shadow-sm' : 'text-ink-soft'
+          }`}
+        >
+          Resumen
+        </button>
+        <button
+          onClick={() => setVista('comision')}
+          className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+            vista === 'comision' ? 'bg-surface text-ink shadow-sm' : 'text-ink-soft'
+          }`}
+        >
+          Comision
+        </button>
+        <button
+          onClick={() => setVista('riesgosos')}
+          className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+            vista === 'riesgosos' ? 'bg-surface text-ink shadow-sm' : 'text-ink-soft'
+          }`}
+        >
+          Clientes riesgosos
+        </button>
+      </div>
+
+      {vista === 'resumen' && (
+        <>
       {/* Totales de hoy / mes */}
       <section>
         <h2 className="text-sm font-semibold text-ink mb-3 flex items-center gap-1.5">
@@ -242,8 +274,10 @@ export default function TabReportesCaja() {
           <span className="font-medium text-ink">{resumen.cantidadPrestamos}</span>
         </div>
       </div>
+        </>
+      )}
 
-      {/* Comisiones por comisionista */}
+      {vista === 'comision' && (
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-ink flex items-center gap-1.5">
@@ -295,8 +329,9 @@ export default function TabReportesCaja() {
           Esta informacion es visible solo para el Usuario Maestro.
         </p>
       </section>
+      )}
 
-      {/* Clientes riesgosos */}
+      {vista === 'riesgosos' && (
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-ink flex items-center gap-1.5">
@@ -342,6 +377,7 @@ export default function TabReportesCaja() {
           ))}
         </ul>
       </section>
+      )}
     </div>
   )
 }
