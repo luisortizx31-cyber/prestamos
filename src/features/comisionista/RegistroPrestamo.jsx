@@ -74,11 +74,14 @@ export default function RegistroPrestamo() {
     return () => { activo = false }
   }, [prestamoOrigenId, clienteId])
 
+  // Valores por defecto del negocio: la gran mayoria de prestamos son
+  // semanales, 20% de interes, 4 cuotas — asi el comisionista solo
+  // tipea el monto y registra, sin llenar todo a mano cada vez.
   const [form, setForm] = useState({
     montoPrestado: '',
-    tasaInteres: '',
+    tasaInteres: '20',
     tipoCuota: TIPO_CUOTA.SEMANAL,
-    numeroCuotas: '',
+    numeroCuotas: '4',
     fechaInicio: HOY,
     fechaEspecifica: '',
   })
