@@ -233,8 +233,11 @@ export default function RegistroPrestamo() {
 
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="space-y-5">
-          <section className="rounded-2xl border border-line bg-surface p-5 space-y-4">
-            <h2 className="text-sm font-semibold text-ink-soft uppercase tracking-wide">
+          <section className="rounded-2xl border-2 border-line bg-surface p-5 space-y-4 shadow-sm">
+            <h2 className="flex items-center gap-2 text-sm font-bold text-ink uppercase tracking-wide">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-soft text-base">
+                📋
+              </span>
               Condiciones del prestamo
             </h2>
 
@@ -331,8 +334,11 @@ export default function RegistroPrestamo() {
 
           {/* Preview en vivo */}
           {preview?.montos && (
-            <section className="rounded-2xl border border-brand/30 bg-brand-soft p-5 space-y-3">
-              <h2 className="text-sm font-semibold text-brand uppercase tracking-wide">
+            <section className="rounded-2xl border-2 border-brand bg-brand-soft p-5 space-y-3 shadow-sm">
+              <h2 className="flex items-center gap-2 text-sm font-bold text-brand uppercase tracking-wide">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/60 text-base">
+                  💰
+                </span>
                 Resumen del prestamo
               </h2>
               <div className="space-y-2 text-sm">
@@ -350,7 +356,7 @@ export default function RegistroPrestamo() {
                   valor={preview.montos.montoSeguro}
                   nota="incluido en la 1ra cuota"
                 />
-                <div className="border-t border-brand/20 pt-2">
+                <div className="rounded-xl border-2 border-brand bg-surface px-3 py-2.5 mt-1">
                   <FilaResumen
                     label="Total a cobrar"
                     valor={preview.montos.montoTotalAPagar}
@@ -363,25 +369,33 @@ export default function RegistroPrestamo() {
 
           {/* Cronograma preview */}
           {preview?.cronograma && (
-            <section className="rounded-2xl border border-line bg-surface overflow-hidden">
-              <div className="px-5 py-3 border-b border-line">
-                <h2 className="text-sm font-semibold text-ink-soft uppercase tracking-wide">
+            <section className="rounded-2xl border-2 border-line bg-surface overflow-hidden shadow-sm">
+              <div className="flex items-center gap-2 bg-brand px-5 py-3">
+                <span className="text-base">📅</span>
+                <h2 className="text-sm font-bold text-white uppercase tracking-wide">
                   Cronograma de pagos
                 </h2>
               </div>
               <ul className="divide-y divide-line">
                 {preview.cronograma.map((c) => (
-                  <li key={c.numero} className="flex items-center justify-between px-5 py-3">
-                    <div>
-                      <span className="text-xs text-ink-soft mr-2">Cuota {c.numero}</span>
+                  <li
+                    key={c.numero}
+                    className="flex items-center justify-between px-5 py-3 odd:bg-paper/60"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-bold text-brand">
+                        {c.numero}
+                      </span>
                       <span className="text-sm text-ink">
                         {formatFecha(c.fechaVencimiento)}
                       </span>
                       {c.numero === 1 && preview.montos.montoSeguro > 0 && (
-                        <span className="ml-2 text-xs text-gold">+ seguro</span>
+                        <span className="rounded-full bg-gold-soft px-2 py-0.5 text-xs font-medium text-gold">
+                          + seguro
+                        </span>
                       )}
                     </div>
-                    <span className="money text-sm font-medium text-ink">
+                    <span className="money text-sm font-bold text-ink">
                       S/ {c.monto.toFixed(2)}
                     </span>
                   </li>
