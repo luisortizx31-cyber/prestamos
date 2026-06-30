@@ -82,7 +82,7 @@ export async function registrarPagoConValidacionYape({
   // cobro — la etiqueta del cliente se autocorrige en la proxima visita
   // a su perfil (ver DetalleCliente.jsx).
   try {
-    await recalcularEstadoCliente(clienteId)
+    await recalcularEstadoCliente(clienteId, comisionistaId)
   } catch (err) {
     console.error('[registrarPagoConValidacionYape] No se pudo recalcular estado:', err)
   }
@@ -120,7 +120,7 @@ export async function registrarPagoEfectivo({
   })
 
   try {
-    await recalcularEstadoCliente(clienteId)
+    await recalcularEstadoCliente(clienteId, comisionistaId)
   } catch (err) {
     console.error('[registrarPagoEfectivo] No se pudo recalcular estado:', err)
   }

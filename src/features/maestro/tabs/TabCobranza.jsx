@@ -6,6 +6,15 @@ import { EtiquetaEstadoCliente } from '../../shared/EtiquetaEstadoCliente'
 import { BotonExportarExcel } from '../../shared/BotonExportarExcel'
 import { ESTADO_CLIENTE_LABELS } from '../../../models/prestamo'
 
+function obtenerIniciales(nombre) {
+  if (!nombre) return '?'
+  const partes = nombre.trim().split(/\s+/)
+  const iniciales = partes.length > 1
+    ? partes[0][0] + partes[partes.length - 1][0]
+    : partes[0].slice(0, 2)
+  return iniciales.toUpperCase()
+}
+
 export default function TabCobranza() {
   const [clientes, setClientes] = useState([])
   const [comisionistas, setComisionistas] = useState([])
@@ -93,6 +102,19 @@ export default function TabCobranza() {
 
   return (
     <div>
+      <div className="mb-4 flex items-center justify-between rounded-2xl bg-brand p-4 text-white">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-white/70">Cartera total</p>
+          <p className="text-2xl font-bold">
+            {clientes.length} cliente{clientes.length !== 1 ? 's' : ''}
+          </p>
+          <p className="text-xs text-white/70">
+            {comisionistas.length} comisionista{comisionistas.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        <span className="text-3xl">🗂️</span>
+      </div>
+
       <div className="flex items-center justify-between gap-2 mb-5">
         <input
           type="text"
@@ -135,35 +157,51 @@ export default function TabCobranza() {
           const abierto = busqueda.trim() ? true : expandidos.has(comisionistaId)
 
           return (
-            <div key={comisionistaId} className="rounded-2xl border border-line bg-surface overflow-hidden">
+            <div
+              key={comisionistaId}
+              className="rounded-2xl border border-brand/30 bg-surface overflow-hidden shadow-sm"
+            >
+              {/* Cabecera del comisionista: fondo solido + avatar, para
+                  que se distinga de un vistazo de los clientes que
+                  cuelgan debajo (texto plano sobre fondo blanco). */}
               <button
                 onClick={() => toggleExpandido(comisionistaId)}
-                className="w-full flex items-center justify-between px-4 py-3.5"
+                className="w-full flex items-center gap-3 bg-brand px-4 py-3.5 text-white active:bg-brand-dark transition-colors"
               >
-                <div className="text-left">
-                  <p className="font-medium text-ink">{grupo.nombre}</p>
-                  <p className="text-xs text-ink-soft">
-                    {grupo.clientes.length} cliente{grupo.clientes.length !== 1 ? 's' : ''}
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-semibold uppercase">
+                  {obtenerIniciales(grupo.nombre)}
+                </span>
+                <div className="flex-1 text-left min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-white/70">
+                    Comisionista
                   </p>
+                  <p className="font-semibold truncate">{grupo.nombre}</p>
                 </div>
-                <span className={`text-ink-soft transition-transform ${abierto ? 'rotate-180' : ''}`}>
+                <span className="shrink-0 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium">
+                  {grupo.clientes.length} cliente{grupo.clientes.length !== 1 ? 's' : ''}
+                </span>
+                <span className={`shrink-0 transition-transform ${abierto ? 'rotate-180' : ''}`}>
                   ⌄
                 </span>
               </button>
 
               {abierto && (
-                <ul className="divide-y divide-line border-t border-line">
+                <ul className="divide-y divide-line border-t border-line bg-paper">
                   {grupo.clientes.length === 0 && (
                     <li className="px-4 py-3 text-sm text-ink-soft">Sin clientes.</li>
                   )}
                   {grupo.clientes.map((cl) => (
                     <li key={cl.id}>
+                      {/* Indentado y con icono de persona: marca visual
+                          de que esto es un cliente colgando del
+                          comisionista de arriba, no otro comisionista. */}
                       <Link
                         to={`/clientes/${cl.id}`}
-                        className="flex items-center justify-between px-4 py-3 active:bg-paper transition-colors"
+                        className="flex items-center gap-3 py-3 pl-9 pr-4 active:bg-line/40 transition-colors"
                       >
-                        <div>
-                          <p className="text-sm font-medium text-ink">{cl.nombre}</p>
+                        <span className="shrink-0 text-ink-soft/60">👤</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-ink truncate">{cl.nombre}</p>
                           <p className="text-xs text-ink-soft">DNI {cl.dni}</p>
                         </div>
                         <EtiquetaEstadoCliente estado={cl.estado} />

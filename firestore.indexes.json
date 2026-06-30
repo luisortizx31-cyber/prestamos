@@ -1,4 +1,13 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "cuotas",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "comisionistaId", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

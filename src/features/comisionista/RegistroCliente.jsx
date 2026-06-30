@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { crearCliente } from '../../services/clientesService'
+import { crearCliente, buscarClientePorDni } from '../../services/clientesService'
 import { consultarDni } from '../../services/dniLookupService'
 
 export default function RegistroCliente() {
@@ -16,6 +16,12 @@ export default function RegistroCliente() {
   // igual y el comisionista corrige a mano si hace falta.
   const [validacionDni, setValidacionDni] = useState(null) // null | 'cargando' | {data} | 'no_encontrado'
 
+  // DNI duplicado: el unico chequeo de esta pantalla que SI bloquea el
+  // envio (la validacion RENIEC de arriba es solo informativa). Un
+  // mismo DNI no puede registrarse dos veces, sin importar que
+  // comisionista lo intente.
+  const [clienteDuplicado, setClienteDuplicado] = useState(null)
+
   function actualizar(campo, valor) {
     setForm((f) => ({ ...f, [campo]: valor }))
   }
@@ -24,6 +30,7 @@ export default function RegistroCliente() {
     const limpio = valor.replace(/\D/g, '').slice(0, 8)
     actualizar('dni', limpio)
     setValidacionDni(null) // se vuelve a validar si el usuario sigue editando
+    setClienteDuplicado(null)
   }
 
   async function handleBlurDni() {
@@ -41,13 +48,29 @@ export default function RegistroCliente() {
       // fuente publica simplemente no tenga el dato.
       setValidacionDni('no_encontrado')
     }
+
+    try {
+      const existente = await buscarClientePorDni(form.dni)
+      setClienteDuplicado(existente)
+    } catch (err) {
+      console.error('[RegistroCliente] Validacion DNI duplicado:', err)
+    }
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
+
+    // Re-chequeo justo antes de guardar (no solo en el blur) por si el
+    // usuario pego el DNI y envio el formulario sin pasar por blur.
     setEnviando(true)
     try {
+      const existente = await buscarClientePorDni(form.dni)
+      if (existente) {
+        setClienteDuplicado(existente)
+        setError(`Ya existe un cliente registrado con este DNI: ${existente.nombre}.`)
+        return
+      }
       await crearCliente({ ...form, comisionistaId: usuarioAuth.uid })
       navigate('/')
     } catch (err) {
@@ -94,6 +117,11 @@ export default function RegistroCliente() {
                 ✓ DNI valido: {validacionDni.data.nombre_completo}
               </p>
             )}
+            {clienteDuplicado && (
+              <p className="text-xs font-medium text-danger">
+                ⚠ Este DNI ya esta registrado como "{clienteDuplicado.nombre}".
+              </p>
+            )}
           </div>
 
           <Campo
@@ -122,7 +150,7 @@ export default function RegistroCliente() {
 
           <button
             type="submit"
-            disabled={enviando}
+            disabled={enviando || Boolean(clienteDuplicado)}
             className="mt-2 w-full rounded-lg bg-brand py-2.5 font-medium text-white disabled:opacity-60"
           >
             {enviando ? 'Guardando…' : 'Registrar cliente'}

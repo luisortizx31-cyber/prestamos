@@ -1,13 +1,16 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
   crearPrestamoConCronograma,
   obtenerPrestamo,
   marcarPrestamoRenovado,
+  listarPrestamosPorCliente,
 } from '../../services/prestamosService'
+import { listarCuotasDePrestamo } from '../../services/cuotasService'
 import { calcularMontos, generarCronograma, descripcionSeguro } from '../../utils/calcularCronograma'
-import { TIPO_CUOTA, TIPO_CUOTA_LABELS } from '../../models/prestamo'
+import { debeOfrecerRenovacion, obtenerPrestamoVigente } from '../../utils/renovacion'
+import { TIPO_CUOTA, TIPO_CUOTA_LABELS, ESTADO_CUOTA } from '../../models/prestamo'
 
 const HOY = new Date().toISOString().split('T')[0]
 
@@ -19,11 +22,57 @@ export default function RegistroPrestamo() {
   const navigate = useNavigate()
 
   const [prestamoOrigen, setPrestamoOrigen] = useState(null)
+  const [saldoPendienteAnterior, setSaldoPendienteAnterior] = useState(0)
+  const [validando, setValidando] = useState(true)
+  const [bloqueo, setBloqueo] = useState(null) // null | { motivo, prestamo }
 
+  // Regla de negocio: un cliente solo puede tener UN prestamo vigente.
+  // - Si pide un prestamo "nuevo" (sin renovarDe) y ya tiene uno vigente,
+  //   se bloquea por completo (defensa ante quien escriba la URL a mano,
+  //   ya que el boton ya esta oculto en DetalleCliente.jsx).
+  // - Si viene a renovar (renovarDe), se valida que ese prestamo siga
+  //   siendo elegible (sigue vigente, ya pago la 1ra cuota, no renovado).
   useEffect(() => {
-    if (!prestamoOrigenId) return
-    obtenerPrestamo(prestamoOrigenId).then(setPrestamoOrigen).catch(console.error)
-  }, [prestamoOrigenId])
+    let activo = true
+    async function validar() {
+      setValidando(true)
+      setBloqueo(null)
+      try {
+        if (prestamoOrigenId) {
+          const origen = await obtenerPrestamo(prestamoOrigenId)
+          if (!activo) return
+          if (!debeOfrecerRenovacion(origen)) {
+            setBloqueo({ motivo: 'renovacion_invalida' })
+            return
+          }
+          const cuotas = await listarCuotasDePrestamo(prestamoOrigenId, usuarioAuth.uid)
+          if (!activo) return
+          // Solo se suma lo que el cliente AUN no pago. Las cuotas "por
+          // verificar" ya fueron cobradas en la calle (solo falta que el
+          // Maestro las confirme) — no deben volver a cobrarse de nuevo.
+          const saldo = cuotas
+            .filter((c) => c.estado === ESTADO_CUOTA.PENDIENTE)
+            .reduce((acc, c) => acc + (c.monto || 0), 0)
+          setPrestamoOrigen(origen)
+          setSaldoPendienteAnterior(saldo)
+        } else {
+          const prestamos = await listarPrestamosPorCliente(clienteId)
+          if (!activo) return
+          const vigente = obtenerPrestamoVigente(prestamos)
+          if (vigente) {
+            setBloqueo({ motivo: 'ya_tiene_activo', prestamo: vigente })
+          }
+        }
+      } catch (err) {
+        console.error('[RegistroPrestamo] Validacion:', err)
+        if (activo) setBloqueo({ motivo: 'error_validacion' })
+      } finally {
+        if (activo) setValidando(false)
+      }
+    }
+    validar()
+    return () => { activo = false }
+  }, [prestamoOrigenId, clienteId])
 
   const [form, setForm] = useState({
     montoPrestado: '',
@@ -43,12 +92,19 @@ export default function RegistroPrestamo() {
   // Preview en vivo: recalcula cada vez que cambia el formulario.
   // El seguro ya NO se ingresa a mano: calcularMontos() lo determina
   // solo segun la regla fija del negocio (3% o tarifa plana S/10).
+  //
+  // Si es una renovacion, el monto base para calcular interes y seguro
+  // NO es solo lo que se ingresa en el campo: es ese dinero nuevo MAS
+  // el saldo que el cliente todavia debia del prestamo anterior — asi
+  // ambas deudas se funden en un solo prestamo nuevo.
   const preview = useMemo(() => {
-    const monto = parseFloat(form.montoPrestado)
+    const montoNuevo = parseFloat(form.montoPrestado)
     const tasa = parseFloat(form.tasaInteres)
     const cuotas = parseInt(form.numeroCuotas)
 
-    if (!monto || !tasa) return null
+    if (!montoNuevo || !tasa) return null
+
+    const monto = montoNuevo + saldoPendienteAnterior
 
     try {
       const montos = calcularMontos(monto, tasa)
@@ -68,7 +124,7 @@ export default function RegistroPrestamo() {
     } catch {
       return null
     }
-  }, [form])
+  }, [form, saldoPendienteAnterior])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -76,16 +132,21 @@ export default function RegistroPrestamo() {
     setError(null)
     setEnviando(true)
     try {
+      const montoNuevo = parseFloat(form.montoPrestado)
       const prestamoId = await crearPrestamoConCronograma({
         clienteId,
         comisionistaId: usuarioAuth.uid,
-        montoPrestado: parseFloat(form.montoPrestado),
+        // Si es renovacion, montoPrestado del prestamo NUEVO ya incluye
+        // la deuda anterior pendiente — quedan fusionados en uno solo.
+        montoPrestado: montoNuevo + saldoPendienteAnterior,
         tasaInteres: parseFloat(form.tasaInteres),
         tipoCuota: form.tipoCuota,
         numeroCuotas: parseInt(form.numeroCuotas) || 1,
         fechaInicio: new Date(form.fechaInicio),
         fechaEspecifica: form.fechaEspecifica ? new Date(form.fechaEspecifica) : null,
         prestamoOrigenId: prestamoOrigenId || null,
+        montoEntregadoNuevo: prestamoOrigenId ? montoNuevo : null,
+        saldoConsolidadoAnterior: prestamoOrigenId ? saldoPendienteAnterior : null,
       })
 
       // Si esto es una renovacion, cerramos el ciclo marcando el
@@ -105,7 +166,28 @@ export default function RegistroPrestamo() {
   }
 
   const esFechaEspecifica = form.tipoCuota === TIPO_CUOTA.FECHA_ESPECIFICA
-  const monto = parseFloat(form.montoPrestado) || 0
+  const montoNuevoIngresado = parseFloat(form.montoPrestado) || 0
+  // El seguro y el interes se calculan sobre el capital TOTAL (dinero
+  // nuevo + deuda anterior fusionada), no solo sobre lo que se ingresa.
+  const monto = montoNuevoIngresado + saldoPendienteAnterior
+
+  if (validando) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-ink-soft">
+        Verificando...
+      </div>
+    )
+  }
+
+  if (bloqueo) {
+    return (
+      <PantallaBloqueo
+        bloqueo={bloqueo}
+        clienteId={clienteId}
+        onVolver={() => navigate(-1)}
+      />
+    )
+  }
 
   return (
     <div className="min-h-screen bg-paper pb-16">
@@ -135,11 +217,13 @@ export default function RegistroPrestamo() {
                 Cuotas pagadas: {prestamoOrigen.cuotasPagadas || 0} de {prestamoOrigen.totalCuotas || 0}
               </p>
               <p className="money">
-                Capital anterior: S/ {(prestamoOrigen.montoPrestado || 0).toFixed(2)}
+                Deuda pendiente que se suma: S/ {saldoPendienteAnterior.toFixed(2)}
               </p>
             </div>
             <p className="text-xs text-gold/70 mt-2">
-              Al guardar este nuevo prestamo, el anterior quedara marcado como renovado.
+              Esa deuda se sumara al dinero nuevo que ingreses abajo: se
+              convertiran en un solo prestamo. El anterior quedara marcado
+              como renovado y cerrado (ya no se podra cobrar de el).
             </p>
           </div>
         )}
@@ -151,7 +235,7 @@ export default function RegistroPrestamo() {
               Condiciones del prestamo
             </h2>
 
-            <Campo label="Monto prestado (S/)">
+            <Campo label={prestamoOrigenId ? 'Dinero nuevo a entregar (S/)' : 'Monto prestado (S/)'}>
               <input
                 type="number"
                 min="1"
@@ -163,6 +247,14 @@ export default function RegistroPrestamo() {
                 className={inputClass}
               />
             </Campo>
+
+            {prestamoOrigenId && montoNuevoIngresado > 0 && (
+              <p className="text-xs text-ink-soft -mt-2">
+                Capital total del nuevo prestamo:{' '}
+                <span className="money font-medium text-ink">S/ {monto.toFixed(2)}</span>
+                {' '}(S/ {montoNuevoIngresado.toFixed(2)} nuevo + S/ {saldoPendienteAnterior.toFixed(2)} de deuda anterior)
+              </p>
+            )}
 
             {monto > 0 && (
               <p className="text-xs text-ink-soft -mt-2">
@@ -241,7 +333,11 @@ export default function RegistroPrestamo() {
                 Resumen del prestamo
               </h2>
               <div className="space-y-2 text-sm">
-                <FilaResumen label="Capital prestado" valor={preview.montos.montoPrestado} />
+                <FilaResumen
+                  label="Capital prestado"
+                  valor={preview.montos.montoPrestado}
+                  nota={prestamoOrigenId ? 'incluye deuda anterior fusionada' : undefined}
+                />
                 <FilaResumen
                   label={`Interes (${form.tasaInteres}%)`}
                   valor={preview.montos.montoInteres}
@@ -308,6 +404,54 @@ export default function RegistroPrestamo() {
             {enviando ? 'Enviando...' : 'Enviar solicitud al administrador'}
           </button>
         </form>
+      </div>
+    </div>
+  )
+}
+
+function PantallaBloqueo({ bloqueo, clienteId, onVolver }) {
+  const { motivo, prestamo } = bloqueo
+
+  let titulo = 'No se puede registrar este prestamo'
+  let detalle = 'Ocurrio un error al validar. Intenta de nuevo.'
+  let accion = null
+
+  if (motivo === 'ya_tiene_activo') {
+    titulo = 'Este cliente ya tiene un prestamo activo'
+    detalle =
+      'Solo se puede tener un prestamo a la vez. Para prestarle mas dinero, ' +
+      'hay que renovar el prestamo que ya tiene, no crear uno nuevo aparte.'
+    if (debeOfrecerRenovacion(prestamo)) {
+      accion = (
+        <Link
+          to={`/clientes/${clienteId}/prestamos/nuevo?renovarDe=${prestamo.id}`}
+          className="rounded-xl bg-gold px-5 py-2.5 text-sm font-semibold text-white"
+        >
+          ⭐ Renovar ese prestamo
+        </Link>
+      )
+    } else {
+      detalle += ' Podra renovarlo recien cuando pague (y se confirme) la primera cuota.'
+    }
+  } else if (motivo === 'renovacion_invalida') {
+    titulo = 'Esta renovacion ya no es valida'
+    detalle =
+      'El prestamo que intentas renovar ya no esta disponible (puede que ' +
+      'ya se renovo, ya se termino de pagar, o aun no tiene ninguna cuota confirmada).'
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+      <p className="text-lg font-semibold text-ink">{titulo}</p>
+      <p className="max-w-sm text-sm text-ink-soft">{detalle}</p>
+      <div className="flex gap-3">
+        <button
+          onClick={onVolver}
+          className="rounded-xl border border-line px-4 py-2 text-sm text-ink-soft"
+        >
+          ← Volver
+        </button>
+        {accion}
       </div>
     </div>
   )

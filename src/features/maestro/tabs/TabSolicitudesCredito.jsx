@@ -123,6 +123,16 @@ export default function TabSolicitudesCredito() {
 
   return (
     <div>
+      <div className="mb-4 flex items-center justify-between rounded-2xl bg-gold p-4 text-white">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-white/70">Por aprobar</p>
+          <p className="text-2xl font-bold">
+            {solicitudes.length} solicitud{solicitudes.length !== 1 ? 'es' : ''}
+          </p>
+        </div>
+        <span className="text-3xl">📝</span>
+      </div>
+
       <div className="flex justify-end mb-3">
         <BotonExportarExcel
           nombreArchivo="solicitudes_credito_pendientes"
@@ -144,15 +154,17 @@ export default function TabSolicitudesCredito() {
       </div>
       <ul className="space-y-3">
       {solicitudes.map((s) => (
-        <li key={s.id} className="rounded-2xl border-2 border-gold bg-gold-soft p-4">
+        <li key={s.id} className="rounded-2xl border-2 border-gold bg-gold-soft p-4 shadow-sm">
           <div className="flex items-start justify-between mb-2">
             <div>
-              <p className="font-semibold text-ink">{s.clienteNombre}</p>
+              <p className="font-semibold text-ink flex items-center gap-1.5">
+                <span>⏳</span> {s.clienteNombre}
+              </p>
               <p className="text-xs text-ink-soft">
                 Comisionista: {s.comisionistaNombre}
               </p>
             </div>
-            <p className="money text-xl font-bold text-ink">
+            <p className="money text-xl font-bold text-gold">
               S/ {(s.montoPrestado || 0).toFixed(2)}
             </p>
           </div>

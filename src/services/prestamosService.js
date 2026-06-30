@@ -31,6 +31,13 @@ import { ESTADO_SOLICITUD } from '../models/prestamo'
  * @param {Date}   [params.fechaEspecifica]
  * @param {string} [params.prestamoOrigenId]  si este prestamo nace de
  *                  una renovacion, el id del prestamo anterior (trazabilidad)
+ * @param {number} [params.montoEntregadoNuevo]    solo en renovaciones:
+ *                  dinero nuevo entregado al cliente (sin contar la deuda
+ *                  anterior consolidada). Es solo trazabilidad/auditoria
+ *                  — montoPrestado YA viene con la suma hecha.
+ * @param {number} [params.saldoConsolidadoAnterior] solo en renovaciones:
+ *                  saldo pendiente del prestamo anterior que se sumo a
+ *                  este. Trazabilidad/auditoria.
  */
 export async function crearPrestamoConCronograma(params) {
   const {
@@ -43,6 +50,8 @@ export async function crearPrestamoConCronograma(params) {
     fechaInicio,
     fechaEspecifica,
     prestamoOrigenId,
+    montoEntregadoNuevo,
+    saldoConsolidadoAnterior,
   } = params
 
   // El seguro ya no se ingresa a mano: se calcula con la regla fija del
@@ -71,6 +80,8 @@ export async function crearPrestamoConCronograma(params) {
     totalCuotas: cronograma.length,
     cuotasPagadas: 0,
     prestamoOrigenId: prestamoOrigenId || null,
+    montoEntregadoNuevo: montoEntregadoNuevo ?? null,
+    saldoConsolidadoAnterior: saldoConsolidadoAnterior ?? null,
     // Solicitud de credito: el comisionista NO puede cobrar ninguna
     // cuota hasta que el Maestro apruebe (ver Tab "Solicitudes de
     // Credito" / solicitudesCreditoService.js). Se aplica tanto en la

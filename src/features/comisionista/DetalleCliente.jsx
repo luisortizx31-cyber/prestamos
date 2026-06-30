@@ -6,13 +6,17 @@ import { listarPrestamosPorCliente } from '../../services/prestamosService'
 import { recalcularEstadoCliente } from '../../services/clienteEstadoService'
 import { EtiquetaEstadoCliente } from '../shared/EtiquetaEstadoCliente'
 import { BotonOfrecerRenovacion } from '../shared/BotonOfrecerRenovacion'
+import { useAuth } from '../../context/AuthContext'
 import { useRole } from '../../hooks/useRole'
 import { TIPO_CUOTA_LABELS, ESTADO_SOLICITUD } from '../../models/prestamo'
+import { debeOfrecerRenovacion, obtenerPrestamoVigente } from '../../utils/renovacion'
+import { construirLinkWhatsapp } from '../../utils/whatsapp'
 
 export default function DetalleCliente() {
   const { clienteId } = useParams()
   const navigate = useNavigate()
   const { esMaestro } = useRole()
+  const { usuarioAuth } = useAuth()
   const [cliente, setCliente] = useState(null)
   const [prestamos, setPrestamos] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -31,7 +35,12 @@ export default function DetalleCliente() {
 
         // Self-heal: recalcula la etiqueta por si pasaron dias desde el
         // ultimo pago sin que nadie haya entrado a ver a este cliente.
-        const nuevoEstado = await recalcularEstadoCliente(clienteId)
+        // Sin comisionistaId (caso Maestro) no se filtra la consulta de
+        // cuotas, ver clienteEstadoService.js.
+        const nuevoEstado = await recalcularEstadoCliente(
+          clienteId,
+          esMaestro ? undefined : usuarioAuth?.uid
+        )
         if (nuevoEstado) {
           setCliente((prev) => (prev ? { ...prev, estado: nuevoEstado } : prev))
         }
@@ -42,7 +51,7 @@ export default function DetalleCliente() {
       }
     }
     cargar()
-  }, [clienteId])
+  }, [clienteId, esMaestro, usuarioAuth])
 
   if (cargando) {
     return <Cargando />
@@ -57,6 +66,18 @@ export default function DetalleCliente() {
   }
 
   const totalPrestado = prestamos.reduce((acc, p) => acc + (p.montoPrestado || 0), 0)
+  // Regla de negocio: un cliente solo puede tener un prestamo vigente a
+  // la vez. Mientras exista uno, no se ofrece "+ Nuevo prestamo" — solo
+  // se puede renovar (boton dentro de la tarjeta de ese prestamo).
+  const prestamoVigente = obtenerPrestamoVigente(prestamos)
+  // Mas nuevo primero: el prestamo vigente (creado despues que el que
+  // renovo) siempre sube al tope sin necesitar logica especial, y los
+  // renovados van quedando mas abajo a medida que se acumula historial.
+  const prestamosOrdenados = [...prestamos].sort((a, b) => {
+    const fa = a.creadoEn?.toDate ? a.creadoEn.toDate() : new Date(a.creadoEn || 0)
+    const fb = b.creadoEn?.toDate ? b.creadoEn.toDate() : new Date(b.creadoEn || 0)
+    return fb - fa
+  })
 
   return (
     <div className="min-h-screen bg-paper pb-16">
@@ -84,7 +105,27 @@ export default function DetalleCliente() {
           </h2>
           <div className="space-y-2 text-sm">
             <Dato label="DNI" valor={cliente.dni} />
-            {cliente.telefono && <Dato label="Telefono" valor={cliente.telefono} />}
+            {cliente.telefono && (
+              <Dato
+                label="Telefono"
+                valor={
+                  <span className="inline-flex items-center gap-2">
+                    {cliente.telefono}
+                    {construirLinkWhatsapp(cliente.telefono) && (
+                      <a
+                        href={construirLinkWhatsapp(cliente.telefono)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Ubicar a ${cliente.nombre} por WhatsApp`}
+                        className="flex h-7 w-7 items-center justify-center rounded-full border border-success/30 bg-success-soft text-sm text-success active:scale-95 transition-transform"
+                      >
+                        💬
+                      </a>
+                    )}
+                  </span>
+                }
+              />
+            )}
             {cliente.direccion && <Dato label="Direccion" valor={cliente.direccion} />}
             {prestamos.length > 0 && (
               <Dato
@@ -104,7 +145,7 @@ export default function DetalleCliente() {
           <h2 className="text-sm font-semibold text-ink">
             Prestamos ({prestamos.length})
           </h2>
-          {!esMaestro && (
+          {!esMaestro && !prestamoVigente && (
             <Link
               to={`/clientes/${clienteId}/prestamos/nuevo`}
               className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white"
@@ -114,6 +155,16 @@ export default function DetalleCliente() {
           )}
         </div>
 
+        {!esMaestro && prestamoVigente && (
+          <p className="text-xs text-ink-soft -mt-2">
+            {prestamoVigente.estadoSolicitud === ESTADO_SOLICITUD.PENDIENTE
+              ? 'Tiene una solicitud pendiente de aprobacion. No se puede registrar otro prestamo.'
+              : debeOfrecerRenovacion(prestamoVigente)
+              ? 'Ya tiene un prestamo activo: solo puede renovarlo (ver abajo).'
+              : 'Ya tiene un prestamo activo. Podra renovarlo cuando pague la primera cuota.'}
+          </p>
+        )}
+
         {prestamos.length === 0 && (
           <div className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-ink-soft">
             Este cliente aun no tiene prestamos registrados.
@@ -121,13 +172,13 @@ export default function DetalleCliente() {
         )}
 
         <ul className="space-y-3">
-          {prestamos.map((p) => {
+          {prestamosOrdenados.map((p) => {
             const pagadas = p.cuotasPagadas || 0
             const total = p.totalCuotas || 0
             const progreso = total > 0 ? Math.round((pagadas / total) * 100) : 0
 
             return (
-              <li key={p.id}>
+              <li key={p.id} className={p.renovado ? 'opacity-60' : undefined}>
                 <Link
                   to={`/prestamos/${p.id}/cuotas`}
                   className="block rounded-2xl border border-line bg-surface p-4 active:bg-paper transition-colors"
@@ -147,6 +198,8 @@ export default function DetalleCliente() {
                           ? 'bg-gold-soft text-gold'
                           : p.estadoSolicitud === ESTADO_SOLICITUD.RECHAZADO
                           ? 'bg-danger-soft text-danger'
+                          : p.renovado
+                          ? 'bg-line text-ink-soft'
                           : pagadas === total && total > 0
                           ? 'bg-success-soft text-success'
                           : 'bg-warning-soft text-warning'
@@ -156,6 +209,8 @@ export default function DetalleCliente() {
                         ? 'Pendiente'
                         : p.estadoSolicitud === ESTADO_SOLICITUD.RECHAZADO
                         ? 'Rechazado'
+                        : p.renovado
+                        ? 'Renovado'
                         : pagadas === total && total > 0
                         ? 'Cancelado'
                         : 'Activo'}

@@ -36,3 +36,20 @@ export async function listarClientesPorComisionista(comisionistaId) {
   const snap = await getDocs(q)
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
+
+/**
+ * Busca si ya existe un cliente con ese DNI, sin importar que
+ * comisionista lo haya registrado — el DNI identifica a la misma
+ * persona en cualquier cuenta, asi que la unicidad es global, no por
+ * comisionista.
+ *
+ * @param {string} dni
+ * @returns {Promise<object|null>} el cliente existente, o null si no hay
+ */
+export async function buscarClientePorDni(dni) {
+  const q = query(collection(db, 'clientes'), where('dni', '==', dni.trim()))
+  const snap = await getDocs(q)
+  if (snap.empty) return null
+  const d = snap.docs[0]
+  return { id: d.id, ...d.data() }
+}

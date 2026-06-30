@@ -22,6 +22,43 @@ service cloud.firestore {
       return estaAutenticado() && rolDe(request.auth.uid) == 'collector';
     }
 
+    // SOLICITUDES DE CREDITO: el comisionista no puede registrar ningun
+    // cobro mientras el prestamo no este aprobado por el Maestro. Los
+    // prestamos sin el campo estadoSolicitud (creados antes de este
+    // flujo) se consideran aprobados por compatibilidad - ese dinero ya
+    // se habia desembolsado en la vida real.
+    //
+    // IMPORTANTE: se chequea primero si el campo EXISTE con el
+    // operador "in" antes de leer su valor. Acceder directo a un campo
+    // que no existe (get(...).data.campo) puede hacer fallar TODA la
+    // evaluacion de la regla en vez de devolver null, lo que bloqueaba
+    // injustamente los prestamos antiguos sin este campo.
+    function creditoAprobado(prestamoId) {
+      let datos = get(/databases/$(database)/documents/prestamos/$(prestamoId)).data;
+      return !('estadoSolicitud' in datos) ||
+        (datos.estadoSolicitud != 'pendiente' && datos.estadoSolicitud != 'rechazado');
+    }
+
+    // ---------------------------------------------------------------
+    // Acceso especial para COLLECTION GROUP QUERIES sobre /cuotas
+    // (ej. Conciliacion de Caja necesita ver TODAS las cuotas
+    // "por_verificar" de TODOS los comisionistas en una sola consulta,
+    // y ChecklistDelDia.jsx necesita ver TODAS las cuotas propias del
+    // comisionista repartidas en distintos prestamos, en una sola
+    // consulta), usando collectionGroup() en el cliente. Firestore
+    // exige una regla con wildcard recursivo {path=**} para autorizar
+    // este tipo de consulta - la regla anidada normal (mas abajo,
+    // dentro de /prestamos/{prestamoId}/cuotas) NO aplica para
+    // collectionGroup(), solo para consultas/lecturas directas a la
+    // subcoleccion de un prestamo especifico.
+    // ---------------------------------------------------------------
+    match /{path=**}/cuotas/{cuotaId} {
+      allow list: if esMaestro() ||
+        (esComisionista() && resource.data.comisionistaId == request.auth.uid);
+      allow get: if esMaestro() ||
+        (esComisionista() && resource.data.comisionistaId == request.auth.uid);
+    }
+
     // ---------------------------------------------------------------
     // /usuarios
     // ---------------------------------------------------------------
@@ -62,22 +99,39 @@ service cloud.firestore {
       allow delete: if esMaestro();
 
       // /prestamos/{prestamoId}/cuotas
-      // FIX: la regla ahora lee comisionistaId directamente del documento
-      // de la cuota (request.resource.data) en vez de hacer get() al
-      // padre. Esto es necesario porque en un batch write el documento
-      // padre aun no existe cuando Firestore evalua las reglas de las
-      // cuotas hijas, haciendo que el get() devuelva null y bloquee
-      // la escritura. Al guardar comisionistaId en cada cuota, la
-      // validacion es instantanea y no depende del padre.
+      //
+      // CONCILIACION DE CAJA EN DOS PASOS - regla critica:
+      // El comisionista puede CREAR y actualizar sus propias cuotas,
+      // pero JAMAS puede dejar una cuota en estado "pagado" el mismo.
+      // Solo el Maestro puede escribir estado == "pagado" (lo hace
+      // desde conciliacionService.js al aprobar). Esto se aplica aqui,
+      // a nivel de servidor, para que ni siquiera alguien manipulando
+      // el codigo del navegador pueda saltarse la aprobacion.
       match /cuotas/{cuotaId} {
         allow get: if esMaestro() ||
           (esComisionista() && resource.data.comisionistaId == request.auth.uid);
-        allow list: if esMaestro() ||
-          (esComisionista() && resource.data.comisionistaId == request.auth.uid);
+
+        // separadas en dos reglas (en vez de una sola con ||): el
+        // Maestro necesita poder listar TODAS las cuotas de TODOS los
+        // comisionistas (ej. conciliacion de caja), sin filtrar por
+        // comisionistaId en la consulta. Si esta regla estuviera
+        // combinada con la del comisionista en un solo "||", Firestore
+        // exige que la consulta tenga un where() sobre comisionistaId
+        // para CUALQUIERA de las dos ramas, aunque la rama del Maestro
+        // no dependa de ese campo. Separarlas en dos "allow list"
+        // independientes evita ese problema: la del Maestro no
+        // referencia ningun campo del documento, asi que no necesita
+        // filtro alguno.
+        allow list: if esMaestro();
+        allow list: if esComisionista() && resource.data.comisionistaId == request.auth.uid;
+
         allow create: if esComisionista() &&
           request.resource.data.comisionistaId == request.auth.uid;
-        allow update: if esComisionista() &&
-          resource.data.comisionistaId == request.auth.uid;
+        allow update: if esMaestro() ||
+          (esComisionista() &&
+           resource.data.comisionistaId == request.auth.uid &&
+           request.resource.data.estado != 'pagado' &&
+           creditoAprobado(prestamoId));
         allow delete: if esMaestro();
       }
     }
@@ -90,7 +144,11 @@ service cloud.firestore {
       allow list: if esMaestro();
       allow create: if esComisionista() &&
         request.resource.data.comisionistaId == request.auth.uid;
-      allow update, delete: if false;
+      allow update: if false;
+      // Solo el Maestro puede borrar (libera el codigo al rechazar una
+      // cuota desde conciliacionService.rechazarCuota). El comisionista
+      // nunca puede borrar registros anti-fraude.
+      allow delete: if esMaestro();
     }
   }
 }

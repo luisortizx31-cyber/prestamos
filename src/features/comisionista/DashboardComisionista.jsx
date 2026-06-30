@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { listarClientesPorComisionista } from '../../services/clientesService'
 import { logout } from '../../services/authService'
 import { EtiquetaEstadoCliente } from '../shared/EtiquetaEstadoCliente'
+import { construirLinkWhatsapp } from '../../utils/whatsapp'
 
 export default function DashboardComisionista() {
   const { usuarioAuth, perfil } = useAuth()
@@ -67,23 +68,42 @@ export default function DashboardComisionista() {
         )}
 
         <ul className="space-y-3">
-          {clientes.map((c) => (
-            <li key={c.id}>
-              <Link
-                to={`/clientes/${c.id}`}
-                className="flex items-center justify-between rounded-2xl border border-line bg-surface p-4 active:bg-paper transition-colors"
-              >
-                <div>
-                  <p className="font-medium text-ink">{c.nombre}</p>
-                  <p className="text-sm text-ink-soft">DNI {c.dni}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <EtiquetaEstadoCliente estado={c.estado} />
-                  <span className="text-ink-soft text-lg">›</span>
-                </div>
-              </Link>
-            </li>
-          ))}
+          {clientes.map((c) => {
+            const linkWhatsapp = construirLinkWhatsapp(c.telefono)
+
+            return (
+              <li key={c.id} className="flex items-center gap-2">
+                <Link
+                  to={`/clientes/${c.id}`}
+                  className="flex flex-1 min-w-0 items-center justify-between rounded-2xl border border-line bg-surface p-4 active:bg-paper transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-ink truncate">{c.nombre}</p>
+                    <p className="text-sm text-ink-soft">DNI {c.dni}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <EtiquetaEstadoCliente estado={c.estado} />
+                    <span className="text-ink-soft text-lg">›</span>
+                  </div>
+                </Link>
+                {/* Fuera del Link a proposito: un <a> no puede contener
+                    otro <a> (mismo patron que BotonOfrecerRenovacion en
+                    DetalleCliente.jsx). */}
+                {linkWhatsapp && (
+                  <a
+                    href={linkWhatsapp}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={`Ubicar a ${c.nombre} por WhatsApp`}
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-success/30 bg-success-soft text-xl text-success active:scale-95 transition-transform"
+                  >
+                    💬
+                  </a>
+                )}
+              </li>
+            )
+          })}
         </ul>
       </main>
     </div>

@@ -185,34 +185,42 @@ export default function TabReportesCaja() {
 
       {/* Totales de hoy / mes */}
       <section>
-        <h2 className="text-sm font-semibold text-ink mb-3">Prestamos otorgados</h2>
+        <h2 className="text-sm font-semibold text-ink mb-3 flex items-center gap-1.5">
+          <span>💰</span> Prestamos otorgados
+        </h2>
         <div className="grid grid-cols-2 gap-3">
-          <Tarjeta label="Hoy" valor={resumen.prestadoHoy} color="text-brand" />
-          <Tarjeta label="Acumulado del mes" valor={resumen.prestadoMes} color="text-brand" />
+          <Tarjeta label="Hoy" valor={resumen.prestadoHoy} color="text-brand" bg="bg-brand-soft border-brand/20" />
+          <Tarjeta label="Acumulado del mes" valor={resumen.prestadoMes} color="text-brand" bg="bg-brand-soft border-brand/20" />
         </div>
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold text-ink mb-3">Cobros recibidos</h2>
+        <h2 className="text-sm font-semibold text-ink mb-3 flex items-center gap-1.5">
+          <span>💵</span> Cobros recibidos
+        </h2>
         <div className="grid grid-cols-2 gap-3">
-          <Tarjeta label="Hoy" valor={resumen.cobradoHoy} color="text-success" />
-          <Tarjeta label="Acumulado del mes" valor={resumen.cobradoMes} color="text-success" />
+          <Tarjeta label="Hoy" valor={resumen.cobradoHoy} color="text-success" bg="bg-success-soft border-success/20" />
+          <Tarjeta label="Acumulado del mes" valor={resumen.cobradoMes} color="text-success" bg="bg-success-soft border-success/20" />
         </div>
       </section>
 
       {/* Totales globales */}
       <section>
-        <h2 className="text-sm font-semibold text-ink mb-3">Totales globales</h2>
+        <h2 className="text-sm font-semibold text-ink mb-3 flex items-center gap-1.5">
+          <span>📊</span> Totales globales
+        </h2>
         <div className="grid grid-cols-2 gap-3">
-          <Tarjeta label="Total prestado" valor={resumen.totalPrestado} color="text-brand" />
-          <Tarjeta label="Total cobrado" valor={resumen.totalCobrado} color="text-success" />
-          <Tarjeta label="Pendiente de cobro" valor={resumen.totalPendienteCobro} color="text-warning" />
-          <Tarjeta label="Seguro acumulado" valor={resumen.totalSeguro} color="text-gold" />
+          <Tarjeta label="Total prestado" valor={resumen.totalPrestado} color="text-brand" bg="bg-brand-soft border-brand/20" emoji="📈" />
+          <Tarjeta label="Total cobrado" valor={resumen.totalCobrado} color="text-success" bg="bg-success-soft border-success/20" emoji="✅" />
+          <Tarjeta label="Pendiente de cobro" valor={resumen.totalPendienteCobro} color="text-warning" bg="bg-warning-soft border-warning/20" emoji="⏳" />
+          <Tarjeta label="Seguro acumulado" valor={resumen.totalSeguro} color="text-gold" bg="bg-gold-soft border-gold/20" emoji="🛡️" />
         </div>
       </section>
 
       <div className="rounded-2xl border border-line bg-surface p-5">
-        <h2 className="text-sm font-semibold text-ink mb-3">Cobrado por metodo de pago</h2>
+        <h2 className="text-sm font-semibold text-ink mb-3 flex items-center gap-1.5">
+          <span>💳</span> Cobrado por metodo de pago
+        </h2>
         <div className="space-y-2">
           <FilaMetodo emoji="📱" label="Yape" valor={resumen.cobradoYape} />
           <FilaMetodo emoji="💵" label="Efectivo" valor={resumen.cobradoEfectivo} />
@@ -220,7 +228,9 @@ export default function TabReportesCaja() {
       </div>
 
       <div className="rounded-2xl border border-line bg-surface p-5">
-        <h2 className="text-sm font-semibold text-ink mb-3">Cuotas</h2>
+        <h2 className="text-sm font-semibold text-ink mb-3 flex items-center gap-1.5">
+          <span>🧾</span> Cuotas
+        </h2>
         <div className="flex justify-between text-sm">
           <span className="text-ink-soft">Pagadas / esperadas</span>
           <span className="font-medium text-ink">
@@ -236,8 +246,8 @@ export default function TabReportesCaja() {
       {/* Comisiones por comisionista */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-ink">
-            Pago a comisionistas (5% al completar deuda)
+          <h2 className="text-sm font-semibold text-ink flex items-center gap-1.5">
+            <span>🤝</span> Pago a comisionistas (5% al completar deuda)
           </h2>
           <BotonExportarExcel
             nombreArchivo="comisiones_comisionistas"
@@ -268,11 +278,11 @@ export default function TabReportesCaja() {
           {comisiones.map((c) => (
             <li
               key={`${c.comisionistaId}-${c.corte}`}
-              className="rounded-2xl border border-line bg-surface p-4"
+              className="rounded-2xl border border-l-4 border-line border-l-success bg-surface p-4"
             >
               <div className="flex items-center justify-between">
                 <p className="font-medium text-ink">{c.comisionistaNombre}</p>
-                <p className="money font-semibold text-success">S/ {c.total.toFixed(2)}</p>
+                <p className="money font-bold text-success">S/ {c.total.toFixed(2)}</p>
               </div>
               <p className="text-xs text-ink-soft mt-1">
                 {c.cantidad} prestamo{c.cantidad > 1 ? 's' : ''} completado{c.cantidad > 1 ? 's' : ''} ·{' '}
@@ -289,8 +299,8 @@ export default function TabReportesCaja() {
       {/* Clientes riesgosos */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-ink">
-            Clientes riesgosos (+{MESES_RIESGO} meses de retraso)
+          <h2 className="text-sm font-semibold text-ink flex items-center gap-1.5">
+            <span>⚠️</span> Clientes riesgosos (+{MESES_RIESGO} meses de retraso)
           </h2>
           <BotonExportarExcel
             nombreArchivo="clientes_riesgosos"
@@ -351,11 +361,13 @@ function aFechaJS(valor) {
   return valor.toDate ? valor.toDate() : new Date(valor)
 }
 
-function Tarjeta({ label, valor, color }) {
+function Tarjeta({ label, valor, color, bg = 'bg-surface border-line', emoji }) {
   return (
-    <div className="rounded-2xl border border-line bg-surface p-4">
-      <p className="text-xs text-ink-soft">{label}</p>
-      <p className={`money mt-1 text-xl font-semibold ${color}`}>S/ {valor.toFixed(2)}</p>
+    <div className={`rounded-2xl border p-4 ${bg}`}>
+      <p className="text-xs text-ink-soft flex items-center gap-1">
+        {emoji && <span>{emoji}</span>} {label}
+      </p>
+      <p className={`money mt-1 text-xl font-bold ${color}`}>S/ {valor.toFixed(2)}</p>
     </div>
   )
 }

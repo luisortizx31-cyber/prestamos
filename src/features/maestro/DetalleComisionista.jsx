@@ -5,7 +5,7 @@ import { db } from '../../config/firebase'
 import { listarClientesPorComisionista } from '../../services/clientesService'
 import { listarPrestamosPorComisionista } from '../../services/prestamosService'
 import { EtiquetaEstadoCliente } from '../shared/EtiquetaEstadoCliente'
-import { TIPO_CUOTA_LABELS } from '../../models/prestamo'
+import { TIPO_CUOTA_LABELS, ESTADO_SOLICITUD, solicitudEstaAprobada } from '../../models/prestamo'
 
 export default function DetalleComisionista() {
   const { comisionistaId } = useParams()
@@ -171,6 +171,16 @@ export default function DetalleComisionista() {
   )
 }
 
+// Vigente = aprobado, no renovado, y todavia no terminado de pagar.
+// Cualquier otra cosa (pendiente de aprobacion, rechazado, renovado,
+// o ya cancelado) ya no esta "activo" y se manda a la seccion gris.
+function esPrestamoActivo(p) {
+  const pagadas = p.cuotasPagadas || 0
+  const total = p.totalCuotas || 0
+  const completado = pagadas === total && total > 0
+  return solicitudEstaAprobada(p) && !p.renovado && !completado
+}
+
 function PrestamosDelComisionista({ prestamos, clientes }) {
   // Mapa clienteId -> nombre, construido a partir de los clientes ya
   // cargados (evita hacer una lectura extra por cada prestamo).
@@ -187,57 +197,95 @@ function PrestamosDelComisionista({ prestamos, clientes }) {
     )
   }
 
+  const activos = prestamos.filter(esPrestamoActivo)
+  const noVigentes = prestamos.filter((p) => !esPrestamoActivo(p))
+
   return (
-    <ul className="space-y-3">
-      {prestamos.map((p) => {
-        const pagadas = p.cuotasPagadas || 0
-        const total = p.totalCuotas || 0
-        const progreso = total > 0 ? Math.round((pagadas / total) * 100) : 0
-        const cancelado = pagadas === total && total > 0
+    <>
+      {activos.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-ink-soft">
+          Este comisionista no tiene prestamos activos ahora mismo.
+        </div>
+      )}
 
-        return (
-          <li key={p.id}>
-            <Link
-              to={`/prestamos/${p.id}/cuotas`}
-              className="block rounded-2xl border border-line bg-surface p-4 active:bg-paper transition-colors"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <p className="font-medium text-ink">
-                    {nombrePorCliente[p.clienteId] || 'Cliente'}
-                  </p>
-                  <p className="money text-lg font-bold text-ink">
-                    S/ {(p.montoPrestado || 0).toFixed(2)}
-                  </p>
-                  <p className="text-xs text-ink-soft mt-0.5">
-                    {TIPO_CUOTA_LABELS[p.tipoCuota]} · {p.tasaInteres}% interes
-                  </p>
-                </div>
-                <span
-                  className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                    cancelado ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'
-                  }`}
-                >
-                  {cancelado ? 'Cancelado' : 'Activo'}
-                </span>
-              </div>
+      {activos.length > 0 && (
+        <ul className="space-y-3">
+          {activos.map((p) => (
+            <TarjetaPrestamo key={p.id} prestamo={p} nombreCliente={nombrePorCliente[p.clienteId]} />
+          ))}
+        </ul>
+      )}
 
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs text-ink-soft">
-                  <span>{pagadas}/{total} cuotas pagadas</span>
-                  <span>{progreso}%</span>
-                </div>
-                <div className="h-2 w-full rounded-full bg-line overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-brand transition-all"
-                    style={{ width: `${progreso}%` }}
-                  />
-                </div>
-              </div>
-            </Link>
-          </li>
-        )
-      })}
-    </ul>
+      {noVigentes.length > 0 && (
+        <>
+          <p className="mt-6 mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
+            No vigentes ({noVigentes.length})
+          </p>
+          {/* grayscale fuerza gris incluso en los badges de color (gold,
+              danger, success) — asi quedan claramente fuera de foco
+              frente a los prestamos activos de arriba. */}
+          <ul className="space-y-3 opacity-70 grayscale">
+            {noVigentes.map((p) => (
+              <TarjetaPrestamo key={p.id} prestamo={p} nombreCliente={nombrePorCliente[p.clienteId]} />
+            ))}
+          </ul>
+        </>
+      )}
+    </>
+  )
+}
+
+function TarjetaPrestamo({ prestamo: p, nombreCliente }) {
+  const pagadas = p.cuotasPagadas || 0
+  const total = p.totalCuotas || 0
+  const progreso = total > 0 ? Math.round((pagadas / total) * 100) : 0
+  const completado = pagadas === total && total > 0
+
+  const badge =
+    p.estadoSolicitud === ESTADO_SOLICITUD.PENDIENTE
+      ? { texto: 'Pendiente', clase: 'bg-gold-soft text-gold' }
+      : p.estadoSolicitud === ESTADO_SOLICITUD.RECHAZADO
+      ? { texto: 'Rechazado', clase: 'bg-danger-soft text-danger' }
+      : p.renovado
+      ? { texto: 'Renovado', clase: 'bg-line text-ink-soft' }
+      : completado
+      ? { texto: 'Cancelado', clase: 'bg-success-soft text-success' }
+      : { texto: 'Activo', clase: 'bg-warning-soft text-warning' }
+
+  return (
+    <li>
+      <Link
+        to={`/prestamos/${p.id}/cuotas`}
+        className="block rounded-2xl border border-line bg-surface p-4 active:bg-paper transition-colors"
+      >
+        <div className="flex items-start justify-between mb-2">
+          <div>
+            <p className="font-medium text-ink">{nombreCliente || 'Cliente'}</p>
+            <p className="money text-lg font-bold text-ink">
+              S/ {(p.montoPrestado || 0).toFixed(2)}
+            </p>
+            <p className="text-xs text-ink-soft mt-0.5">
+              {TIPO_CUOTA_LABELS[p.tipoCuota]} · {p.tasaInteres}% interes
+            </p>
+          </div>
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${badge.clase}`}>
+            {badge.texto}
+          </span>
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-ink-soft">
+            <span>{pagadas}/{total} cuotas pagadas</span>
+            <span>{progreso}%</span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-line overflow-hidden">
+            <div
+              className="h-full rounded-full bg-brand transition-all"
+              style={{ width: `${progreso}%` }}
+            />
+          </div>
+        </div>
+      </Link>
+    </li>
   )
 }

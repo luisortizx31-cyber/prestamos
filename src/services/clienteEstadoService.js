@@ -17,8 +17,18 @@ const UMBRAL_MOROSO = 3 // 3+ cuotas vencidas
  * proyecto corre en plan Spark): se llama explicitamente despues de
  * cada pago, y tambien al abrir el perfil del cliente, para que la
  * etiqueta nunca quede desactualizada por mucho tiempo.
+ *
+ * @param {string} clienteId
+ * @param {string} [comisionistaId]  IMPORTANTE: cuando quien llama es
+ *   un comisionista (no el Maestro), este parametro es obligatorio en
+ *   la practica. La regla de seguridad de /cuotas para comisionista
+ *   exige resource.data.comisionistaId == uid, y Firestore necesita
+ *   el where() en la propia consulta para autorizar el list() — sin
+ *   el, rechaza la consulta COMPLETA con "permission denied" (mismo
+ *   patron que cuotasService.js). El Maestro no lo necesita: su rama
+ *   de la regla no depende de ningun campo del documento.
  */
-export async function recalcularEstadoCliente(clienteId) {
+export async function recalcularEstadoCliente(clienteId, comisionistaId) {
   if (!clienteId) return null
 
   const prestamosSnap = await getDocs(
@@ -30,8 +40,11 @@ export async function recalcularEstadoCliente(clienteId) {
 
   await Promise.all(
     prestamosSnap.docs.map(async (prestamoDoc) => {
+      const cuotasRef = collection(db, 'prestamos', prestamoDoc.id, 'cuotas')
       const cuotasSnap = await getDocs(
-        collection(db, 'prestamos', prestamoDoc.id, 'cuotas')
+        comisionistaId
+          ? query(cuotasRef, where('comisionistaId', '==', comisionistaId))
+          : cuotasRef
       )
       cuotasSnap.docs.forEach((cuotaDoc) => {
         const cuota = cuotaDoc.data()

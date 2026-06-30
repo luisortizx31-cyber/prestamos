@@ -183,6 +183,24 @@ export default function ChecklistCuotas() {
         </div>
       )}
 
+      {prestamo?.renovado && (
+        <div className="mx-4 mt-4 rounded-2xl border-2 border-line bg-paper p-4">
+          <p className="text-sm font-semibold text-ink-soft">⭐ Prestamo renovado</p>
+          <p className="text-xs text-ink-soft mt-1">
+            Su deuda pendiente se fusiono en un prestamo nuevo. Ya no se
+            pueden cobrar cuotas pendientes desde aqui.
+          </p>
+          {prestamo.prestamoRenovacionId && (
+            <button
+              onClick={() => navigate(`/prestamos/${prestamo.prestamoRenovacionId}/cuotas`)}
+              className="mt-2 text-xs font-medium text-brand underline"
+            >
+              Ver el prestamo nuevo →
+            </button>
+          )}
+        </div>
+      )}
+
       <main className="mx-auto max-w-lg px-4 py-5">
         {cuotas.length === 0 && (
           <p className="text-center text-ink-soft py-10">No hay cuotas registradas.</p>
@@ -244,7 +262,7 @@ export default function ChecklistCuotas() {
                   <span className="money text-base font-semibold text-ink">
                     S/ {cuota.monto.toFixed(2)}
                   </span>
-                  {esPendiente && !esMaestro && solicitudEstaAprobada(prestamo) && (
+                  {esPendiente && !esMaestro && !prestamo?.renovado && solicitudEstaAprobada(prestamo) && (
                     <button
                       onClick={() => setCuotaActiva(cuota)}
                       className={`rounded-xl px-3 py-2 text-sm font-medium text-white active:scale-95 transition-transform ${

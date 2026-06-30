@@ -6,10 +6,10 @@ import TabSolicitudesCredito from './tabs/TabSolicitudesCredito'
 import TabReportesCaja from './tabs/TabReportesCaja'
 
 const TABS = [
-  { id: 'cobranza', label: 'Cobranza', Componente: TabCobranza },
-  { id: 'comisionistas', label: 'Comisionistas', Componente: TabComisionistas },
-  { id: 'solicitudes', label: 'Solicitudes', Componente: TabSolicitudesCredito },
-  { id: 'reportes', label: 'Reportes y Caja', Componente: TabReportesCaja },
+  { id: 'cobranza', label: 'Cobranza', icon: '🗂️', Componente: TabCobranza },
+  { id: 'comisionistas', label: 'Comisionistas', icon: '🧑‍💼', Componente: TabComisionistas },
+  { id: 'solicitudes', label: 'Solicitudes', icon: '📝', Componente: TabSolicitudesCredito },
+  { id: 'reportes', label: 'Reportes y Caja', icon: '📊', Componente: TabReportesCaja },
 ]
 
 export default function PanelMaestro() {
@@ -41,13 +41,13 @@ export default function PanelMaestro() {
           <button
             key={t.id}
             onClick={() => setTabActiva(t.id)}
-            className={`shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+            className={`shrink-0 flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
               tabActiva === t.id
                 ? 'border-brand text-brand'
                 : 'border-transparent text-ink-soft'
             }`}
           >
-            {t.label}
+            <span>{t.icon}</span> {t.label}
           </button>
         ))}
       </nav>
