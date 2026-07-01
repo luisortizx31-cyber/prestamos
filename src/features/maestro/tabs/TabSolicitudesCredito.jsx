@@ -171,7 +171,7 @@ export default function TabSolicitudesCredito() {
 
           <div className="grid grid-cols-2 gap-2 text-xs text-ink-soft mb-3">
             <p>Interes: {s.tasaInteres}%</p>
-            <p>Seguro: {s.porcentajeSeguro || 0}%</p>
+            <p>Seguro: S/ {(s.montoSeguro || 0).toFixed(2)}</p>
             <p>{TIPO_CUOTA_LABELS[s.tipoCuota]}</p>
             <p>{s.totalCuotas} cuota{s.totalCuotas !== 1 ? 's' : ''}</p>
           </div>
