@@ -29,6 +29,9 @@ export default function DetalleCliente() {
   const [cargando, setCargando] = useState(true)
   const [prestamoExpandido, setPrestamoExpandido] = useState(null)
   const [cuotaActiva, setCuotaActiva] = useState(null) // { cuota, prestamoId }
+  // Las fotos del DNI no se cargan hasta que el usuario las pide -
+  // evita gastar ancho de banda/lecturas de Storage en cada visita.
+  const [verFotosDni, setVerFotosDni] = useState(false)
 
   useEffect(() => {
     async function cargar() {
@@ -131,24 +134,36 @@ export default function DetalleCliente() {
             )}
             {cliente.direccion && <Dato label="Direccion" valor={cliente.direccion} />}
             {(cliente.dniFrenteUrl || cliente.dniReversoUrl) && (
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                {cliente.dniFrenteUrl && (
-                  <a href={cliente.dniFrenteUrl} target="_blank" rel="noopener noreferrer">
-                    <img
-                      src={cliente.dniFrenteUrl}
-                      alt="DNI frente"
-                      className="aspect-[4/3] w-full rounded-lg border border-line object-cover"
-                    />
-                  </a>
-                )}
-                {cliente.dniReversoUrl && (
-                  <a href={cliente.dniReversoUrl} target="_blank" rel="noopener noreferrer">
-                    <img
-                      src={cliente.dniReversoUrl}
-                      alt="DNI reverso"
-                      className="aspect-[4/3] w-full rounded-lg border border-line object-cover"
-                    />
-                  </a>
+              <div className="pt-2">
+                {verFotosDni ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {cliente.dniFrenteUrl && (
+                      <a href={cliente.dniFrenteUrl} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={cliente.dniFrenteUrl}
+                          alt="DNI frente"
+                          className="aspect-[4/3] w-full rounded-lg border border-line object-cover"
+                        />
+                      </a>
+                    )}
+                    {cliente.dniReversoUrl && (
+                      <a href={cliente.dniReversoUrl} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={cliente.dniReversoUrl}
+                          alt="DNI reverso"
+                          className="aspect-[4/3] w-full rounded-lg border border-line object-cover"
+                        />
+                      </a>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setVerFotosDni(true)}
+                    className="rounded-lg border border-line bg-paper px-3 py-2 text-sm font-medium text-ink active:scale-95 transition-transform"
+                  >
+                    Ver DNI
+                  </button>
                 )}
               </div>
             )}
