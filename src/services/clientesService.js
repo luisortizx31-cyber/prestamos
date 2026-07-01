@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   setDoc,
+  updateDoc,
   getDocs,
   query,
   where,
@@ -29,6 +30,19 @@ export async function crearCliente({ comisionistaId, nombre, dni, telefono, dire
     creadoEn: serverTimestamp(),
   })
   return ref.id
+}
+
+/**
+ * Guarda las URLs de las fotos del DNI (frente y/o reverso) en el
+ * cliente ya creado. Se llama despues de crearCliente porque necesita
+ * el clienteId para armar la ruta en Storage.
+ */
+export async function actualizarFotosDni(clienteId, { dniFrenteUrl, dniReversoUrl }) {
+  const datos = {}
+  if (dniFrenteUrl) datos.dniFrenteUrl = dniFrenteUrl
+  if (dniReversoUrl) datos.dniReversoUrl = dniReversoUrl
+  if (Object.keys(datos).length === 0) return
+  await updateDoc(doc(db, 'clientes', clienteId), datos)
 }
 
 export async function listarClientesPorComisionista(comisionistaId) {

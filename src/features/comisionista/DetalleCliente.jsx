@@ -130,6 +130,28 @@ export default function DetalleCliente() {
               />
             )}
             {cliente.direccion && <Dato label="Direccion" valor={cliente.direccion} />}
+            {(cliente.dniFrenteUrl || cliente.dniReversoUrl) && (
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                {cliente.dniFrenteUrl && (
+                  <a href={cliente.dniFrenteUrl} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={cliente.dniFrenteUrl}
+                      alt="DNI frente"
+                      className="aspect-[4/3] w-full rounded-lg border border-line object-cover"
+                    />
+                  </a>
+                )}
+                {cliente.dniReversoUrl && (
+                  <a href={cliente.dniReversoUrl} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={cliente.dniReversoUrl}
+                      alt="DNI reverso"
+                      className="aspect-[4/3] w-full rounded-lg border border-line object-cover"
+                    />
+                  </a>
+                )}
+              </div>
+            )}
             {prestamos.length > 0 && (
               <Dato
                 label="Total prestado"

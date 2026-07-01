@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { crearCliente, buscarClientePorDni } from '../../services/clientesService'
+import { crearCliente, buscarClientePorDni, actualizarFotosDni } from '../../services/clientesService'
 import { consultarDni } from '../../services/dniLookupService'
+import { comprimirImagen } from '../../utils/imageCompress'
+import { subirFotoDni } from '../../services/storageService'
 
 export default function RegistroCliente() {
   const navigate = useNavigate()
@@ -20,6 +22,32 @@ export default function RegistroCliente() {
   // mismo DNI no puede registrarse dos veces, sin importar que
   // comisionista lo intente.
   const [clienteDuplicado, setClienteDuplicado] = useState(null)
+
+  // Fotos del DNI: se comprimen a WebP en el navegador apenas se
+  // seleccionan (no al enviar el formulario), asi el comisionista ve
+  // de una si la foto quedo legible antes de registrar al cliente.
+  const [fotoFrente, setFotoFrente] = useState(null) // { blob, previewUrl } | null
+  const [fotoReverso, setFotoReverso] = useState(null)
+  const [comprimiendo, setComprimiendo] = useState(null) // null | 'frente' | 'reverso'
+
+  async function handleFotoDni(lado, archivo) {
+    if (!archivo) return
+    setComprimiendo(lado)
+    try {
+      const blob = await comprimirImagen(archivo)
+      const previewUrl = URL.createObjectURL(blob)
+      const setFoto = lado === 'frente' ? setFotoFrente : setFotoReverso
+      setFoto((prev) => {
+        if (prev?.previewUrl) URL.revokeObjectURL(prev.previewUrl)
+        return { blob, previewUrl }
+      })
+    } catch (err) {
+      console.error('[RegistroCliente] Error al comprimir foto DNI:', err)
+      setError('No se pudo procesar la foto. Intenta con otra imagen.')
+    } finally {
+      setComprimiendo(null)
+    }
+  }
 
   function actualizar(campo, valor) {
     setForm((f) => ({ ...f, [campo]: valor }))
@@ -70,7 +98,25 @@ export default function RegistroCliente() {
         setError(`Ya existe un cliente registrado con este DNI: ${existente.nombre}.`)
         return
       }
-      await crearCliente({ ...form, comisionistaId: usuarioAuth.uid })
+      const clienteId = await crearCliente({ ...form, comisionistaId: usuarioAuth.uid })
+
+      // El cliente ya quedo registrado en este punto - si falla la
+      // subida de fotos no revertimos el registro, solo avisamos.
+      if (fotoFrente || fotoReverso) {
+        try {
+          const [dniFrenteUrl, dniReversoUrl] = await Promise.all([
+            fotoFrente ? subirFotoDni(clienteId, 'frente', fotoFrente.blob) : null,
+            fotoReverso ? subirFotoDni(clienteId, 'reverso', fotoReverso.blob) : null,
+          ])
+          await actualizarFotosDni(clienteId, { dniFrenteUrl, dniReversoUrl })
+        } catch (err) {
+          console.error('[RegistroCliente] Error al subir fotos del DNI:', err)
+          alert(
+            'El cliente se registro correctamente, pero las fotos del DNI no se pudieron subir.'
+          )
+        }
+      }
+
       navigate('/')
     } catch (err) {
       console.error('[RegistroCliente] Error al guardar:', err)
@@ -141,6 +187,21 @@ export default function RegistroCliente() {
             required={false}
           />
 
+          <div className="mb-4 grid grid-cols-2 gap-3">
+            <CampoFoto
+              label="DNI - Frente"
+              foto={fotoFrente}
+              cargando={comprimiendo === 'frente'}
+              onSeleccionar={(archivo) => handleFotoDni('frente', archivo)}
+            />
+            <CampoFoto
+              label="DNI - Reverso"
+              foto={fotoReverso}
+              cargando={comprimiendo === 'reverso'}
+              onSeleccionar={(archivo) => handleFotoDni('reverso', archivo)}
+            />
+          </div>
+
           {error && (
             <p className="mb-3 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
               {error}
@@ -149,7 +210,7 @@ export default function RegistroCliente() {
 
           <button
             type="submit"
-            disabled={enviando || Boolean(clienteDuplicado)}
+            disabled={enviando || Boolean(clienteDuplicado) || Boolean(comprimiendo)}
             className="mt-2 w-full rounded-lg bg-brand py-2.5 font-medium text-white disabled:opacity-60"
           >
             {enviando ? 'Guardando…' : 'Registrar cliente'}
@@ -171,6 +232,32 @@ function Campo({ label, value, onChange, required = true }) {
         onChange={(e) => onChange(e.target.value)}
         className="mt-1 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-ink outline-none focus-visible:border-brand"
       />
+    </div>
+  )
+}
+
+// capture="environment" abre directo la camara trasera en celulares,
+// pero igual permite elegir de la galeria si el navegador lo soporta.
+function CampoFoto({ label, foto, cargando, onSeleccionar }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-ink">{label}</label>
+      <label className="mt-1 flex aspect-[4/3] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-lg border border-dashed border-line bg-paper text-center">
+        {foto ? (
+          <img src={foto.previewUrl} alt={label} className="h-full w-full object-cover" />
+        ) : cargando ? (
+          <span className="text-xs text-ink-soft">Comprimiendo…</span>
+        ) : (
+          <span className="px-2 text-xs text-ink-soft">📷 Adjuntar foto</span>
+        )}
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => onSeleccionar(e.target.files?.[0])}
+        />
+      </label>
     </div>
   )
 }

@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function estaAutenticado() {
+      return request.auth != null;
+    }
+
+    function rolDe(uid) {
+      return firestore.get(/databases/(default)/documents/usuarios/$(uid)).data.role;
+    }
+
+    function esMaestro() {
+      return estaAutenticado() && rolDe(request.auth.uid) == 'master';
+    }
+
+    function esComisionista() {
+      return estaAutenticado() && rolDe(request.auth.uid) == 'collector';
+    }
+
+    // Fotos del DNI (frente/reverso) de cada cliente. El limite de 2MB
+    // y el tipo de contenido son defensa en profundidad - la app ya
+    // comprime la imagen a ~150KB en el navegador antes de subirla.
+    match /clientes/{clienteId}/{archivo} {
+      allow read: if esMaestro() || esComisionista();
+      allow write: if (esMaestro() || esComisionista()) &&
+        request.resource.size < 2 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+  }
+}
