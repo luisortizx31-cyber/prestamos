@@ -11,6 +11,7 @@ import { solicitudEstaAprobada } from '../../models/prestamo'
 export default function DashboardComisionista() {
   const { usuarioAuth, perfil } = useAuth()
   const [clientes, setClientes] = useState([])
+  const [busqueda, setBusqueda] = useState('')
   const [totalPrestado, setTotalPrestado] = useState(0)
   const [cargando, setCargando] = useState(true)
 
@@ -69,7 +70,7 @@ export default function DashboardComisionista() {
           </div>
         )}
 
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between">
           <p className="text-sm text-ink-soft">{clientes.length} cliente{clientes.length !== 1 ? 's' : ''}</p>
           <Link
             to="/clientes/nuevo"
@@ -78,6 +79,16 @@ export default function DashboardComisionista() {
             + Nuevo cliente
           </Link>
         </div>
+
+        {!cargando && clientes.length > 0 && (
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por nombre o DNI…"
+            className="mb-4 w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-ink-soft/60 outline-none focus-visible:border-brand"
+          />
+        )}
 
         {cargando && <p className="text-ink-soft">Cargando...</p>}
 
@@ -88,8 +99,20 @@ export default function DashboardComisionista() {
           </div>
         )}
 
+        {!cargando && busqueda && clientes.filter(c =>
+          c.nombre?.toLowerCase().includes(busqueda.toLowerCase()) || c.dni?.includes(busqueda)
+        ).length === 0 && (
+          <div className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-ink-soft">
+            No se encontro ningun cliente con "{busqueda}".
+          </div>
+        )}
+
         <ul className="space-y-3">
-          {clientes.map((c) => {
+          {clientes.filter((c) => {
+            const q = busqueda.trim().toLowerCase()
+            if (!q) return true
+            return c.nombre?.toLowerCase().includes(q) || c.dni?.includes(q)
+          }).map((c) => {
             const linkWhatsapp = construirLinkWhatsapp(c.telefono)
 
             return (
