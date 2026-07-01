@@ -2,19 +2,33 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { listarClientesPorComisionista } from '../../services/clientesService'
+import { listarPrestamosPorComisionista } from '../../services/prestamosService'
 import { logout } from '../../services/authService'
 import { EtiquetaEstadoCliente } from '../shared/EtiquetaEstadoCliente'
 import { construirLinkWhatsapp } from '../../utils/whatsapp'
+import { solicitudEstaAprobada } from '../../models/prestamo'
 
 export default function DashboardComisionista() {
   const { usuarioAuth, perfil } = useAuth()
   const [clientes, setClientes] = useState([])
+  const [totalPrestado, setTotalPrestado] = useState(0)
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
     if (!usuarioAuth) return
-    listarClientesPorComisionista(usuarioAuth.uid)
-      .then(setClientes)
+    Promise.all([
+      listarClientesPorComisionista(usuarioAuth.uid),
+      listarPrestamosPorComisionista(usuarioAuth.uid),
+    ])
+      .then(([listaClientes, listaPrestamos]) => {
+        setClientes(listaClientes)
+        // Solo cuenta lo realmente desembolsado: excluye solicitudes
+        // pendientes/rechazadas (ver solicitudEstaAprobada en models/prestamo.js).
+        const total = listaPrestamos
+          .filter(solicitudEstaAprobada)
+          .reduce((acc, p) => acc + (p.montoPrestado || 0), 0)
+        setTotalPrestado(total)
+      })
       .catch(console.error)
       .finally(() => setCargando(false))
   }, [usuarioAuth])
@@ -47,6 +61,13 @@ export default function DashboardComisionista() {
           </div>
           <span className="text-xl">→</span>
         </Link>
+
+        {!cargando && (
+          <div className="mb-5 rounded-2xl border border-line bg-surface p-4">
+            <p className="text-xs uppercase tracking-wide text-ink-soft">Monto total prestado</p>
+            <p className="money text-2xl font-bold text-brand">S/ {totalPrestado.toFixed(2)}</p>
+          </div>
+        )}
 
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm text-ink-soft">{clientes.length} cliente{clientes.length !== 1 ? 's' : ''}</p>

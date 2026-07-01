@@ -4,12 +4,14 @@ import TabCobranza from './tabs/TabCobranza'
 import TabComisionistas from './tabs/TabComisionistas'
 import TabSolicitudesCredito from './tabs/TabSolicitudesCredito'
 import TabReportesCaja from './tabs/TabReportesCaja'
+import TabAjustes from './tabs/TabAjustes'
 
 const TABS = [
   { id: 'cobranza', label: 'Cobranza', icon: '🗂️', Componente: TabCobranza },
   { id: 'comisionistas', label: 'Comisionistas', icon: '🧑‍💼', Componente: TabComisionistas },
   { id: 'solicitudes', label: 'Solicitudes', icon: '📝', Componente: TabSolicitudesCredito },
   { id: 'reportes', label: 'Reportes y Caja', icon: '📊', Componente: TabReportesCaja },
+  { id: 'ajustes', label: 'Ajustes', icon: '⚙️', Componente: TabAjustes },
 ]
 
 export default function PanelMaestro() {

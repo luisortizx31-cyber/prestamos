@@ -1,49 +1,33 @@
 // ---------------------------------------------------------------------
 // ADVERTENCIA DE SEGURIDAD - LEER ANTES DE TOCAR ESTE ARCHIVO
 // ---------------------------------------------------------------------
-// Este token queda visible para cualquiera en el codigo del navegador
-// (F12 -> Sources, o "Ver codigo fuente"). Se acepto este riesgo de
-// forma TEMPORAL porque la cuenta de apiperu.dev usada es el plan
-// FREE: si alguien copia el token, en el peor caso se agota el cupo
-// gratuito mensual de consultas — no genera ningun cargo de dinero.
-//
-// ANTES de pasar a un plan de pago en apiperu.dev, o antes de que esta
-// app maneje produccion real con datos sensibles a mayor escala, esto
-// DEBE migrarse a una Cloud Function (requiere activar el plan Blaze
-// de Firebase) para que el token quede oculto en el servidor y nunca
-// llegue al navegador del usuario.
+// Este token queda visible en el codigo del navegador (F12 -> Sources).
+// Migrarlo a una Cloud Function (plan Blaze de Firebase) ocultaria el
+// token en el servidor. Por ahora se acepta el riesgo: si alguien lo
+// copia, solo consume creditos de la cuenta de VerificaPE.
 // ---------------------------------------------------------------------
-const APIPERU_TOKEN = import.meta.env.VITE_APIPERU_TOKEN
+const VERIFICAPE_TOKEN = import.meta.env.VITE_APIPERU_TOKEN
 
 /**
- * Consulta un DNI contra RENIEC via apiperu.dev.
+ * Consulta un DNI contra RENIEC via VerificaPE (api.verificape.com).
+ * Devuelve datos completos y sin enmascarar (plan live).
  *
- * IMPORTANTE sobre el plan FREE: los datos vuelven PARCIALMENTE
- * ENMASCARADOS (ej. "CA***INA" en vez de "CAROLINA"). Por eso esto se
- * usa solo como VALIDACION/CONFIRMACION de que el DNI existe — nunca
- * para autocompletar el campo de nombre automaticamente, ya que el
- * dato enmascarado no sirve como nombre real a guardar.
- *
- * Tambien puede no encontrar resultado para un DNI valido (la fuente
- * publica no siempre tiene el dato) — esto NUNCA debe bloquear el
- * registro del cliente, solo es informativo.
+ * Puede no encontrar resultado para un DNI valido — esto NUNCA debe
+ * bloquear el registro del cliente, solo es informativo.
  *
  * @param {string} dni  8 digitos
- * @returns {Promise<{numero, nombre_completo, nombres, apellido_paterno, apellido_materno}>}
+ * @returns {Promise<{dni, fullName, names, paternalSurname, maternalSurname, birthDate, gender, source}>}
  */
 export async function consultarDni(dni) {
-  if (!APIPERU_TOKEN) {
+  if (!VERIFICAPE_TOKEN) {
     throw new Error('Falta configurar VITE_APIPERU_TOKEN en el .env')
   }
 
-  const response = await fetch('https://apiperu.dev/api/dni', {
-    method: 'POST',
+  const response = await fetch(`https://api.verificape.com/v2/dni/${dni}`, {
+    method: 'GET',
     headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${APIPERU_TOKEN}`,
+      Authorization: `Bearer ${VERIFICAPE_TOKEN}`,
     },
-    body: JSON.stringify({ dni }),
   })
 
   const json = await response.json()

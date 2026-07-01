@@ -11,9 +11,8 @@ export default function RegistroCliente() {
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState(null)
 
-  // Validacion de DNI contra RENIEC (apiperu.dev). El nombre puede venir
-  // parcialmente enmascarado (plan Free, ej. "CA***INA") — se autocompleta
-  // igual y el comisionista corrige a mano si hace falta.
+  // Validacion de DNI contra RENIEC (VerificaPE). Devuelve nombre completo
+  // real sin enmascarar — se autocompleta directamente en el campo nombre.
   const [validacionDni, setValidacionDni] = useState(null) // null | 'cargando' | {data} | 'no_encontrado'
 
   // DNI duplicado: el unico chequeo de esta pantalla que SI bloquea el
@@ -39,8 +38,8 @@ export default function RegistroCliente() {
     try {
       const data = await consultarDni(form.dni)
       setValidacionDni({ data })
-      if (data?.nombre_completo) {
-        actualizar('nombre', data.nombre_completo)
+      if (data?.fullName) {
+        actualizar('nombre', data.fullName)
       }
     } catch (err) {
       console.error('[RegistroCliente] Validacion DNI:', err)
@@ -114,7 +113,7 @@ export default function RegistroCliente() {
             )}
             {validacionDni?.data && (
               <p className="text-xs text-success">
-                ✓ DNI valido: {validacionDni.data.nombre_completo}
+                ✓ DNI valido: {validacionDni.data.fullName}
               </p>
             )}
             {clienteDuplicado && (
