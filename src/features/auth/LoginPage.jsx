@@ -51,32 +51,33 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-brand">
+    <div className="flex min-h-screen flex-col items-center bg-brand sm:justify-center sm:py-10">
+      <div className="flex w-full flex-1 flex-col sm:max-w-sm sm:flex-none sm:rounded-3xl sm:overflow-hidden sm:shadow-2xl">
 
-      {/* ── Hero ── */}
-      <div className="relative flex flex-col items-center justify-center px-6 pt-16 pb-14 overflow-hidden">
-        {/* Círculos decorativos de fondo */}
-        <div className="absolute -top-16 -right-16 h-56 w-56 rounded-full bg-white/5" />
-        <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/5" />
+        {/* ── Hero ── */}
+        <div className="relative flex flex-col items-center justify-center px-6 pt-16 pb-14 overflow-hidden sm:pt-10 sm:pb-10">
+          {/* Círculos decorativos de fondo */}
+          <div className="absolute -top-16 -right-16 h-56 w-56 rounded-full bg-white/5" />
+          <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/5" />
 
-        {/* Ícono S/ */}
-        <div className="relative mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/15 shadow-lg ring-1 ring-white/20">
-          <span className="font-mono text-4xl font-extrabold text-white tracking-tighter">S/</span>
+          {/* Ícono S/ */}
+          <div className="relative mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/15 shadow-lg ring-1 ring-white/20">
+            <span className="font-mono text-4xl font-extrabold text-white tracking-tighter">S/</span>
+          </div>
+
+          <h1 className="relative text-center text-3xl font-bold tracking-tight text-white">
+            Préstamos Jhairo
+          </h1>
+          <p className="relative mt-1.5 font-mono text-xs tracking-widest text-white/50 uppercase">
+            Sistema de cobranzas
+          </p>
         </div>
 
-        <h1 className="relative text-center text-3xl font-bold tracking-tight text-white">
-          Préstamos Jhairo
-        </h1>
-        <p className="relative mt-1.5 font-mono text-xs tracking-widest text-white/50 uppercase">
-          Sistema de cobranzas
-        </p>
-      </div>
+        {/* ── Tarjeta de formulario ── */}
+        <div className="flex flex-1 flex-col rounded-t-3xl bg-paper px-6 pt-8 pb-10 shadow-2xl sm:flex-none sm:rounded-t-none sm:pb-8">
+          <h2 className="mb-6 text-lg font-semibold text-ink">Ingresar</h2>
 
-      {/* ── Tarjeta de formulario ── */}
-      <div className="flex flex-1 flex-col rounded-t-3xl bg-paper px-6 pt-8 pb-10 shadow-2xl">
-        <h2 className="mb-6 text-lg font-semibold text-ink">Ingresar</h2>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="block text-sm font-medium text-ink" htmlFor="dni">
               DNI
@@ -126,7 +127,8 @@ export default function LoginPage() {
           >
             {enviando ? 'Ingresando…' : 'Ingresar'}
           </button>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   )
