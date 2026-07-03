@@ -3,7 +3,11 @@ import { Link } from 'react-router-dom'
 import { collectionGroup, collection, getDocs, query, where } from 'firebase/firestore'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../../../config/firebase'
-import { listarTodosLosPrestamos } from '../../../services/prestamosService'
+import {
+  listarTodosLosPrestamos,
+  marcarComisionesComoPagadas,
+  deshacerPagoComision,
+} from '../../../services/prestamosService'
 import { BotonExportarExcel } from '../../shared/BotonExportarExcel'
 import { etiquetaCorte } from '../../../services/comisionService'
 import { ESTADO_CUOTA, METODO_PAGO } from '../../../models/prestamo'
@@ -13,6 +17,9 @@ const MESES_RIESGO = 4
 export default function TabReportesCaja() {
   const [resumen, setResumen] = useState(null)
   const [comisiones, setComisiones] = useState([])
+  const [comisionesPagadas, setComisionesPagadas] = useState([])
+  const [verHistorialComisiones, setVerHistorialComisiones] = useState(false)
+  const [procesandoComision, setProcesandoComision] = useState(null) // key del grupo en proceso
   const [riesgosos, setRiesgosos] = useState([])
   const [rawData, setRawData] = useState({ prestamos: [], cuotasPagadas: [] })
   const [cargando, setCargando] = useState(true)
@@ -73,26 +80,42 @@ export default function TabReportesCaja() {
         prestadoHoy, cobradoHoy, prestamosHoy, cuotasHoy,
       })
 
-      // Comisiones por comisionista agrupadas por corte
-      const mapaComisiones = {}
-      prestamos
-        .filter((p) => p.comisionGanada)
-        .forEach((p) => {
-          const key = `${p.comisionistaId}-${p.cortePago}`
-          if (!mapaComisiones[key]) {
-            mapaComisiones[key] = {
+      // Comisiones por comisionista, agrupadas por corte Y por el mes/año
+      // real de ese corte (no solo "corte 1 o 2" — eso mezclaria para
+      // siempre el corte 1 de enero con el de marzo). Separadas en
+      // pendientes de pago / ya pagadas segun comisionPagada, para que
+      // el Maestro pueda marcar un grupo como pagado y que deje de
+      // aparecer como pendiente (ver marcarComisionesComoPagadas).
+      function agruparComisiones(lista) {
+        const mapa = {}
+        lista.forEach((p) => {
+          const fechaPago = aFechaJS(p.fechaPagoComision)
+          const periodo = fechaPago
+            ? `${fechaPago.getFullYear()}-${fechaPago.getMonth()}`
+            : 'sin-fecha'
+          const key = `${p.comisionistaId}-${p.cortePago}-${periodo}`
+          if (!mapa[key]) {
+            mapa[key] = {
+              key,
               comisionistaId: p.comisionistaId,
               comisionistaNombre: nombresComisionista[p.comisionistaId] || 'Comisionista',
               corte: p.cortePago,
               fechaPago: p.fechaPagoComision,
               total: 0,
               cantidad: 0,
+              prestamoIds: [],
             }
           }
-          mapaComisiones[key].total += p.comisionGanada
-          mapaComisiones[key].cantidad += 1
+          mapa[key].total += p.comisionGanada
+          mapa[key].cantidad += 1
+          mapa[key].prestamoIds.push(p.id)
         })
-      setComisiones(Object.values(mapaComisiones))
+        return Object.values(mapa)
+      }
+
+      const prestamosConComision = prestamos.filter((p) => p.comisionGanada)
+      setComisiones(agruparComisiones(prestamosConComision.filter((p) => !p.comisionPagada)))
+      setComisionesPagadas(agruparComisiones(prestamosConComision.filter((p) => p.comisionPagada)))
 
       // Clientes riesgosos (>4 meses de retraso)
       const limiteRiesgo = new Date(hoy)
@@ -154,6 +177,30 @@ export default function TabReportesCaja() {
   }
 
   useEffect(() => { cargar() }, [])
+
+  async function handleMarcarPagada(grupo) {
+    setProcesandoComision(grupo.key)
+    try {
+      await marcarComisionesComoPagadas(grupo.prestamoIds)
+      await cargar()
+    } catch (err) {
+      console.error('[TabReportesCaja] Error al marcar comision pagada:', err)
+    } finally {
+      setProcesandoComision(null)
+    }
+  }
+
+  async function handleDeshacerPago(grupo) {
+    setProcesandoComision(grupo.key)
+    try {
+      await deshacerPagoComision(grupo.prestamoIds)
+      await cargar()
+    } catch (err) {
+      console.error('[TabReportesCaja] Error al deshacer pago de comision:', err)
+    } finally {
+      setProcesandoComision(null)
+    }
+  }
 
   // Estadísticas del mes seleccionado, calculadas sobre los datos ya cargados
   const statsMes = calcularMes(
@@ -347,13 +394,13 @@ export default function TabReportesCaja() {
 
           {comisiones.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-ink-soft">
-              Todavia no hay prestamos completados con comision contabilizada.
+              No hay comisiones pendientes de pago.
             </div>
           ) : (
             <ul className="space-y-2">
               {comisiones.map((c) => (
                 <li
-                  key={`${c.comisionistaId}-${c.corte}`}
+                  key={c.key}
                   className="rounded-2xl border border-l-4 border-line border-l-success bg-surface p-4"
                 >
                   <div className="flex items-center justify-between">
@@ -364,10 +411,61 @@ export default function TabReportesCaja() {
                     {c.cantidad} prestamo{c.cantidad > 1 ? 's' : ''} completado{c.cantidad > 1 ? 's' : ''} ·{' '}
                     {etiquetaCorte(c.corte)} · Pago: {formatFecha(c.fechaPago)}
                   </p>
+                  <button
+                    onClick={() => handleMarcarPagada(c)}
+                    disabled={procesandoComision === c.key}
+                    className="mt-3 w-full rounded-lg bg-success py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {procesandoComision === c.key ? 'Marcando...' : '✓ Marcar como pagada'}
+                  </button>
                 </li>
               ))}
             </ul>
           )}
+
+          <button
+            onClick={() => setVerHistorialComisiones((v) => !v)}
+            className="mt-4 text-xs font-medium text-ink-soft underline"
+          >
+            {verHistorialComisiones ? 'Ocultar' : 'Ver'} historial de comisiones pagadas (
+            {comisionesPagadas.length})
+          </button>
+
+          {verHistorialComisiones && (
+            <div className="mt-2">
+              {comisionesPagadas.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-ink-soft">
+                  Todavia no marcaste ninguna comision como pagada.
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {comisionesPagadas.map((c) => (
+                    <li
+                      key={c.key}
+                      className="rounded-2xl border border-line bg-paper p-4 opacity-80"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium text-ink">{c.comisionistaNombre}</p>
+                        <p className="money font-bold text-ink-soft">S/ {c.total.toFixed(2)}</p>
+                      </div>
+                      <p className="mt-1 text-xs text-ink-soft">
+                        {c.cantidad} prestamo{c.cantidad > 1 ? 's' : ''} · {etiquetaCorte(c.corte)} ·{' '}
+                        Pago: {formatFecha(c.fechaPago)}
+                      </p>
+                      <button
+                        onClick={() => handleDeshacerPago(c)}
+                        disabled={procesandoComision === c.key}
+                        className="mt-3 w-full rounded-lg border border-line py-2 text-xs text-ink-soft disabled:opacity-50"
+                      >
+                        {procesandoComision === c.key ? 'Deshaciendo...' : 'Deshacer (me equivoque)'}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
           <p className="mt-2 text-xs text-ink-soft">
             Esta informacion es visible solo para el Usuario Maestro.
           </p>

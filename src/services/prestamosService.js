@@ -220,3 +220,32 @@ export async function listarTodosLosPrestamos() {
   const snap = await getDocs(collection(db, 'prestamos'))
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
+
+/**
+ * Marca la comision (5% al comisionista) de un grupo de prestamos ya
+ * completados como pagada — asi el Tab "Reportes y Caja" > Comision
+ * puede dejar de mostrarla como pendiente. Se usa cuando el Maestro le
+ * deposita/entrega el corte a un comisionista.
+ */
+export async function marcarComisionesComoPagadas(prestamoIds) {
+  const batch = writeBatch(db)
+  prestamoIds.forEach((id) => {
+    batch.update(doc(db, 'prestamos', id), {
+      comisionPagada: true,
+      comisionPagadaEn: serverTimestamp(),
+    })
+  })
+  await batch.commit()
+}
+
+/** Revierte marcarComisionesComoPagadas, por si el Maestro se equivoco. */
+export async function deshacerPagoComision(prestamoIds) {
+  const batch = writeBatch(db)
+  prestamoIds.forEach((id) => {
+    batch.update(doc(db, 'prestamos', id), {
+      comisionPagada: false,
+      comisionPagadaEn: null,
+    })
+  })
+  await batch.commit()
+}
