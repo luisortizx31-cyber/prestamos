@@ -1,19 +1,27 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { collectionGroup, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
+import { collectionGroup, collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
 import { db } from '../../config/firebase'
 import { aprobarCuota, rechazarCuota, aprobarCuotasEnLote } from '../../services/conciliacionService'
-import { METODO_PAGO } from '../../models/prestamo'
+import {
+  aprobarRecalendarizacion,
+  rechazarRecalendarizacion,
+} from '../../services/recalendarizacionService'
+import { METODO_PAGO, ESTADO_SOLICITUD } from '../../models/prestamo'
 
 export default function ConciliacionCaja() {
   const navigate = useNavigate()
   const [items, setItems] = useState([])
+  const [recalendarizaciones, setRecalendarizaciones] = useState([])
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState(null)
   const [seleccionadas, setSeleccionadas] = useState(new Set())
   const [procesando, setProcesando] = useState(false)
   const [rechazando, setRechazando] = useState(null) // cuotaId en proceso de rechazo
   const [motivoRechazo, setMotivoRechazo] = useState('')
+  const [procesandoRecal, setProcesandoRecal] = useState(null) // id de la recalendarizacion en proceso
+  const [rechazandoRecal, setRechazandoRecal] = useState(null)
+  const [motivoRechazoRecal, setMotivoRechazoRecal] = useState('')
 
   useEffect(() => {
     cargar()
@@ -24,14 +32,24 @@ export default function ConciliacionCaja() {
     setCargando(true)
     setErrorCarga(null)
     try {
-      const q = query(collectionGroup(db, 'cuotas'), where('estado', '==', 'por_verificar'))
-      const snap = await getDocs(q)
-      const cuotas = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      const [snapCuotas, snapRecal] = await Promise.all([
+        getDocs(query(collectionGroup(db, 'cuotas'), where('estado', '==', 'por_verificar'))),
+        getDocs(
+          query(collection(db, 'recalendarizaciones'), where('estado', '==', ESTADO_SOLICITUD.PENDIENTE))
+        ),
+      ])
+      const cuotas = snapCuotas.docs.map((d) => ({ id: d.id, ...d.data() }))
+      const recalItems = snapRecal.docs.map((d) => ({ id: d.id, ...d.data() }))
 
-      // Traemos nombre del comisionista y del cliente de cada cuota
-      // (una sola lectura por id distinto, no por cuota).
-      const comisionistaIds = [...new Set(cuotas.map((c) => c.comisionistaId).filter(Boolean))]
-      const clienteIds = [...new Set(cuotas.map((c) => c.clienteId).filter(Boolean))]
+      // Traemos nombre del comisionista y del cliente de cada cuota y
+      // cada recalendarizacion (una sola lectura por id distinto, no
+      // por item).
+      const comisionistaIds = [
+        ...new Set([...cuotas, ...recalItems].map((c) => c.comisionistaId).filter(Boolean)),
+      ]
+      const clienteIds = [
+        ...new Set([...cuotas, ...recalItems].map((c) => c.clienteId).filter(Boolean)),
+      ]
 
       const [nombresComisionista, nombresCliente] = await Promise.all([
         cargarNombres('usuarios', comisionistaIds),
@@ -52,6 +70,13 @@ export default function ConciliacionCaja() {
 
       setItems(conNombres)
       setSeleccionadas(new Set())
+      setRecalendarizaciones(
+        recalItems.map((r) => ({
+          ...r,
+          comisionistaNombre: nombresComisionista[r.comisionistaId] || 'Comisionista',
+          clienteNombre: nombresCliente[r.clienteId] || 'Cliente',
+        }))
+      )
     } catch (err) {
       console.error('[ConciliacionCaja]', err)
       setErrorCarga(
@@ -152,6 +177,32 @@ export default function ConciliacionCaja() {
     }
   }
 
+  async function handleAprobarRecal(item) {
+    setProcesandoRecal(item.id)
+    try {
+      await aprobarRecalendarizacion(item.id)
+      await cargar()
+    } catch (err) {
+      console.error('[ConciliacionCaja] handleAprobarRecal', err)
+    } finally {
+      setProcesandoRecal(null)
+    }
+  }
+
+  async function confirmarRechazoRecal(item) {
+    setProcesandoRecal(item.id)
+    try {
+      await rechazarRecalendarizacion(item.id, motivoRechazoRecal.trim())
+      setRechazandoRecal(null)
+      setMotivoRechazoRecal('')
+      await cargar()
+    } catch (err) {
+      console.error('[ConciliacionCaja] confirmarRechazoRecal', err)
+    } finally {
+      setProcesandoRecal(null)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-paper pb-24">
       <header className="flex items-center gap-3 border-b border-line bg-surface px-4 py-4">
@@ -173,6 +224,79 @@ export default function ConciliacionCaja() {
           <div className="rounded-2xl border border-danger/30 bg-danger-soft p-5 text-center">
             <p className="text-danger font-medium">{errorCarga}</p>
           </div>
+        )}
+
+        {!cargando && !errorCarga && recalendarizaciones.length > 0 && (
+          <section className="mb-6">
+            <h2 className="mb-2 px-1 font-semibold text-ink">
+              ↻ Recalendarizaciones pendientes ({recalendarizaciones.length})
+            </h2>
+            <ul className="space-y-2">
+              {recalendarizaciones.map((r) => (
+                <li key={r.id} className="rounded-2xl border border-gold/30 bg-gold-soft/40 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium text-ink">{r.clienteNombre}</p>
+                    <span className="money font-semibold text-gold">
+                      S/ {r.montoInteresPagado.toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-ink-soft mt-0.5">
+                    Comisionista: {r.comisionistaNombre} ·{' '}
+                    {r.metodoPago === METODO_PAGO.YAPE ? `Yape: ${r.codigoYape}` : 'Efectivo'}
+                  </p>
+                  <p className="mt-1 text-xs text-ink-soft">
+                    Solo interes — si se aprueba, todas las cuotas pendientes de
+                    este prestamo se corren un periodo mas adelante.
+                  </p>
+
+                  {rechazandoRecal === r.id ? (
+                    <div className="mt-3 space-y-2">
+                      <input
+                        type="text"
+                        autoFocus
+                        value={motivoRechazoRecal}
+                        onChange={(e) => setMotivoRechazoRecal(e.target.value)}
+                        placeholder="Motivo del rechazo (opcional)"
+                        className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus-visible:border-brand"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setRechazandoRecal(null); setMotivoRechazoRecal('') }}
+                          className="flex-1 rounded-lg border border-line py-2 text-sm text-ink-soft"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={() => confirmarRechazoRecal(r)}
+                          disabled={procesandoRecal === r.id}
+                          className="flex-1 rounded-lg bg-danger py-2 text-sm font-medium text-white disabled:opacity-50"
+                        >
+                          Confirmar rechazo
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() => setRechazandoRecal(r.id)}
+                        disabled={procesandoRecal === r.id}
+                        className="flex-1 rounded-lg border border-danger/30 bg-danger-soft py-2 text-sm font-medium text-danger disabled:opacity-50"
+                      >
+                        Rechazar
+                      </button>
+                      <button
+                        onClick={() => handleAprobarRecal(r)}
+                        disabled={procesandoRecal === r.id}
+                        className="flex-1 rounded-lg bg-success py-2 text-sm font-medium text-white disabled:opacity-50"
+                      >
+                        {procesandoRecal === r.id ? 'Procesando...' : 'Aprobar'}
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         {!cargando && !errorCarga && items.length === 0 && (

@@ -518,6 +518,9 @@ function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCo
                     {cuota.recalendarizada && (
                       <span className="ml-1 text-ink-soft">· ↻ PUESTA AL DIA</span>
                     )}
+                    {cuota.recalendarizacionPendiente && (
+                      <span className="ml-1 text-gold">· 🕐 RECALENDARIZACION EN REVISION</span>
+                    )}
                   </p>
                   {(pagada || porVerificar) &&
                     cuota.metodoPago === METODO_PAGO.YAPE &&
@@ -538,6 +541,7 @@ function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCo
                   S/ {cuota.monto.toFixed(2)}
                 </span>
                 {esPendiente &&
+                  !cuota.recalendarizacionPendiente &&
                   (esPropietario || esMaestro) &&
                   !prestamo.renovado &&
                   solicitudEstaAprobada(prestamo) && (
@@ -551,6 +555,7 @@ function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCo
                     </button>
                   )}
                 {esLaActual &&
+                  !cuota.recalendarizacionPendiente &&
                   admiteRecalendarizar &&
                   (esPropietario || esMaestro) &&
                   !prestamo.renovado &&

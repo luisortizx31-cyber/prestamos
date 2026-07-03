@@ -203,10 +203,12 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------
-    // /recalendarizaciones - historial de pagos "solo interes"
-    // (ver recalendarizacionService.js). Se aplican de inmediato, sin
-    // pasar por Conciliacion de Caja, asi que no requieren un helper
-    // especial como creditoAprobado()/prestamoPendiente().
+    // /recalendarizaciones - solicitudes de pago "solo interes"
+    // (ver recalendarizacionService.js). Flujo en dos pasos igual que
+    // un cobro normal: el comisionista solo CREA la solicitud
+    // (pendiente); el cronograma no se toca hasta que el Maestro la
+    // aprueba o rechaza actualizando este mismo documento (ver
+    // ConciliacionCaja.jsx).
     // ---------------------------------------------------------------
     match /recalendarizaciones/{id} {
       allow get: if esMaestro() ||
@@ -217,7 +219,10 @@ service cloud.firestore {
       // suyo propio (ver ConfirmarClaveMaestro.jsx).
       allow create: if (esComisionista() && request.resource.data.comisionistaId == request.auth.uid) ||
         esMaestro();
-      allow update: if false;
+      // Solo el Maestro aprueba/rechaza (aprobarRecalendarizacion /
+      // rechazarRecalendarizacion) — el comisionista nunca actualiza
+      // esto una vez creado.
+      allow update: if esMaestro();
       allow delete: if esMaestro();
     }
   }

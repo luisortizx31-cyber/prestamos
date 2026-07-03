@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { registrarPagoSoloInteres } from '../../services/recalendarizacionService'
+import { solicitarRecalendarizacion } from '../../services/recalendarizacionService'
 import {
   existeCodigoYape,
   CodigoYapeDuplicadoError,
@@ -47,7 +47,7 @@ export function ModalRecalendarizar({ prestamo, prestamoId, comisionistaId, clie
     setError(null)
     setEnviando(true)
     try {
-      await registrarPagoSoloInteres({
+      await solicitarRecalendarizacion({
         prestamoId,
         clienteId,
         comisionistaId,
@@ -75,8 +75,9 @@ export function ModalRecalendarizar({ prestamo, prestamoId, comisionistaId, clie
             <p className="text-xs text-ink-soft uppercase tracking-wide">Recalendarizar (solo interes)</p>
             <p className="money text-xl font-bold text-ink">S/ {montoInteres.toFixed(2)}</p>
             <p className="text-sm text-ink-soft">
-              El cliente paga solo el interes — el capital no baja, y todas las
-              cuotas pendientes se corren un periodo mas adelante.
+              El cliente paga solo el interes — el capital no baja. Esto queda
+              pendiente de aprobacion del administrador; recien cuando lo
+              apruebe se corren las cuotas pendientes un periodo mas adelante.
             </p>
           </div>
           <button onClick={onCerrar} className="text-2xl leading-none text-ink-soft px-1">×</button>
@@ -143,7 +144,7 @@ export function ModalRecalendarizar({ prestamo, prestamoId, comisionistaId, clie
               disabled={!codigo.trim() || !!advertencia || verificando || enviando}
               className="mt-3 w-full rounded-xl bg-brand py-3.5 font-semibold text-white disabled:opacity-50 active:scale-[0.99] transition-transform"
             >
-              {enviando ? 'Registrando...' : 'Confirmar recalendarizacion'}
+              {enviando ? 'Enviando...' : 'Enviar solicitud al administrador'}
             </button>
           </div>
         )}
@@ -170,7 +171,7 @@ export function ModalRecalendarizar({ prestamo, prestamoId, comisionistaId, clie
               disabled={enviando}
               className="w-full rounded-xl bg-brand py-3.5 font-semibold text-white disabled:opacity-50 active:scale-[0.99] transition-transform"
             >
-              {enviando ? 'Registrando...' : 'Confirmar recalendarizacion'}
+              {enviando ? 'Enviando...' : 'Enviar solicitud al administrador'}
             </button>
           </div>
         )}

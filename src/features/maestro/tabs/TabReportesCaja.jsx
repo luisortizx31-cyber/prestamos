@@ -10,7 +10,7 @@ import {
 } from '../../../services/prestamosService'
 import { BotonExportarExcel } from '../../shared/BotonExportarExcel'
 import { etiquetaCorte } from '../../../services/comisionService'
-import { ESTADO_CUOTA, METODO_PAGO } from '../../../models/prestamo'
+import { ESTADO_CUOTA, ESTADO_SOLICITUD, METODO_PAGO } from '../../../models/prestamo'
 
 const MESES_RIESGO = 4
 
@@ -40,10 +40,15 @@ export default function TabReportesCaja() {
         listarTodosLosPrestamos(),
         getDocs(query(collectionGroup(db, 'cuotas'), where('estado', '==', ESTADO_CUOTA.PAGADO))),
         getDocs(query(collection(db, 'usuarios'), where('role', '==', 'collector'))),
-        getDocs(collection(db, 'recalendarizaciones')),
+        getDocs(
+          query(collection(db, 'recalendarizaciones'), where('estado', '==', ESTADO_SOLICITUD.APROBADO))
+        ),
       ])
 
       const cuotasPagadas = snapCuotasPagadas.docs.map((d) => d.data())
+      // Solo las aprobadas por el Maestro cuentan para la caja — las
+      // que siguen pendientes de revision (ver ConciliacionCaja.jsx)
+      // todavia no movieron nada de verdad.
       const recalendarizaciones = snapRecalendarizaciones.docs.map((d) => d.data())
       const nombresComisionista = {}
       snapComisionistas.docs.forEach((d) => {
@@ -82,7 +87,7 @@ export default function TabReportesCaja() {
       const prestamosHoy = contarEnRango(prestamos, 'creadoEn', inicioHoy, null)
       const cuotasHoy = contarEnRango(cuotasPagadas, 'fechaAprobacion', inicioHoy, null)
       const interesRecalendarizadoHoy = sumarEnRango(
-        recalendarizaciones, 'creadoEn', inicioHoy, null, 'montoInteresPagado'
+        recalendarizaciones, 'fechaAprobacion', inicioHoy, null, 'montoInteresPagado'
       )
 
       setResumen({
