@@ -80,3 +80,15 @@ export async function listarComisionistas() {
   const snap = await getDocs(q)
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
+
+export async function buscarComisionistaPorDni(dni) {
+  const q = query(
+    collection(db, 'usuarios'),
+    where('role', '==', ROLES.COLLECTOR),
+    where('dni', '==', dni.trim())
+  )
+  const snap = await getDocs(q)
+  if (snap.empty) return null
+  const d = snap.docs[0]
+  return { id: d.id, ...d.data() }
+}
