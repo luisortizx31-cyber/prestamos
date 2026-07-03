@@ -6,6 +6,7 @@ import { listarClientesPorComisionista } from '../../services/clientesService'
 import { listarPrestamosPorComisionista } from '../../services/prestamosService'
 import { EtiquetaEstadoCliente } from '../shared/EtiquetaEstadoCliente'
 import { TIPO_CUOTA_LABELS, ESTADO_SOLICITUD, solicitudEstaAprobada } from '../../models/prestamo'
+import { construirLinkWhatsapp } from '../../utils/whatsapp'
 
 export default function DetalleComisionista() {
   const { comisionistaId } = useParams()
@@ -82,14 +83,25 @@ export default function DetalleComisionista() {
         <button onClick={() => navigate(-1)} className="text-xl leading-none text-ink-soft">
           ←
         </button>
-        <div>
+        <div className="flex-1 min-w-0">
           <p className="font-mono text-xs tracking-widest text-ink-soft uppercase">
             Comisionista
           </p>
-          <h1 className="text-lg font-semibold text-ink">
+          <h1 className="text-lg font-semibold text-ink truncate">
             {comisionista?.nombre || 'Sin nombre'}
           </h1>
         </div>
+        {construirLinkWhatsapp(comisionista?.telefono) && (
+          <a
+            href={construirLinkWhatsapp(comisionista?.telefono)}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Escribir a ${comisionista?.nombre} por WhatsApp`}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-success/30 bg-success-soft text-lg text-success active:scale-95 transition-transform"
+          >
+            💬
+          </a>
+        )}
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-6">

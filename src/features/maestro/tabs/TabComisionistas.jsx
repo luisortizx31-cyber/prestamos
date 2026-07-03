@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { listarComisionistas } from '../../../services/comisionistasService'
 import { listarPrestamosPorComisionista } from '../../../services/prestamosService'
 import { BotonExportarExcel } from '../../shared/BotonExportarExcel'
+import { construirLinkWhatsapp } from '../../../utils/whatsapp'
 
 export default function TabComisionistas() {
   const [filas, setFilas] = useState([])
@@ -107,25 +108,38 @@ export default function TabComisionistas() {
       <ul className="space-y-3">
         {filasFiltradas.map((f) => (
           <li key={f.uid ?? f.id}>
-            <Link
-              to={`/comisionistas/${f.uid ?? f.id}`}
-              className="flex items-center justify-between rounded-2xl border border-line bg-surface p-4 active:bg-paper transition-colors"
-            >
-              <div>
-                <p className="font-medium text-ink">{f.nombre}</p>
+            <div className="flex items-center justify-between gap-2 rounded-2xl border border-line bg-surface p-4">
+              <Link
+                to={`/comisionistas/${f.uid ?? f.id}`}
+                className="min-w-0 flex-1 active:opacity-70 transition-opacity"
+              >
+                <p className="font-medium text-ink truncate">{f.nombre}</p>
                 <p className="text-sm text-ink-soft">
                   {f.cantidadPrestamos} préstamo{f.cantidadPrestamos === 1 ? '' : 's'} ·
                   seguro acumulado{' '}
                   <span className="money">S/ {f.totalSeguro.toFixed(2)}</span>
                 </p>
+              </Link>
+              <div className="flex items-center gap-2 shrink-0">
+                {construirLinkWhatsapp(f.telefono) && (
+                  <a
+                    href={construirLinkWhatsapp(f.telefono)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Escribir a ${f.nombre} por WhatsApp`}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-success/30 bg-success-soft text-sm text-success active:scale-95 transition-transform"
+                  >
+                    💬
+                  </a>
+                )}
+                <Link to={`/comisionistas/${f.uid ?? f.id}`} className="flex items-center gap-2">
+                  <p className="money text-lg font-semibold text-ink">
+                    S/ {f.totalPrestado.toFixed(2)}
+                  </p>
+                  <span className="text-ink-soft text-lg">›</span>
+                </Link>
               </div>
-              <div className="flex items-center gap-2">
-                <p className="money text-lg font-semibold text-ink">
-                  S/ {f.totalPrestado.toFixed(2)}
-                </p>
-                <span className="text-ink-soft text-lg">›</span>
-              </div>
-            </Link>
+            </div>
           </li>
         ))}
       </ul>
