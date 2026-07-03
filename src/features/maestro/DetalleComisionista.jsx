@@ -155,20 +155,31 @@ export default function DetalleComisionista() {
 
             <ul className="space-y-3">
               {clientes.map((c) => (
-                <li key={c.id}>
+                <li key={c.id} className="flex items-center gap-2">
                   <Link
                     to={`/clientes/${c.id}`}
-                    className="flex items-center justify-between rounded-2xl border border-line bg-surface p-4 active:bg-paper transition-colors"
+                    className="flex flex-1 min-w-0 items-center justify-between rounded-2xl border border-line bg-surface p-4 active:bg-paper transition-colors"
                   >
-                    <div>
-                      <p className="font-medium text-ink">{c.nombre}</p>
+                    <div className="min-w-0">
+                      <p className="font-medium text-ink truncate">{c.nombre}</p>
                       <p className="text-sm text-ink-soft">DNI {c.dni}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <EtiquetaEstadoCliente estado={c.estado} />
                       <span className="text-ink-soft text-lg">›</span>
                     </div>
                   </Link>
+                  {construirLinkWhatsapp(c.telefono) && (
+                    <a
+                      href={construirLinkWhatsapp(c.telefono)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Escribir a ${c.nombre} por WhatsApp`}
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-success/30 bg-success-soft text-lg text-success active:scale-95 transition-transform"
+                    >
+                      💬
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>

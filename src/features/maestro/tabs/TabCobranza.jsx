@@ -7,6 +7,7 @@ import { BotonExportarExcel } from '../../shared/BotonExportarExcel'
 import { ESTADO_CLIENTE_LABELS } from '../../../models/prestamo'
 import { useAuth } from '../../../context/AuthContext'
 import { reasignarCliente } from '../../../services/clientesService'
+import { construirLinkWhatsapp } from '../../../utils/whatsapp'
 
 function obtenerIniciales(nombre) {
   if (!nombre) return '?'
@@ -306,6 +307,17 @@ export default function TabCobranza() {
                           </div>
                           <EtiquetaEstadoCliente estado={cl.estado} />
                         </Link>
+                        {construirLinkWhatsapp(cl.telefono) && (
+                          <a
+                            href={construirLinkWhatsapp(cl.telefono)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Escribir a ${cl.nombre} por WhatsApp`}
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-success/30 bg-success-soft text-sm text-success active:scale-95 transition-transform"
+                          >
+                            💬
+                          </a>
+                        )}
                       </div>
                     </li>
                   ))}
