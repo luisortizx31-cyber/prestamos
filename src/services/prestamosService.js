@@ -53,12 +53,14 @@ export async function crearPrestamoConCronograma(params) {
     montoEntregadoNuevo,
     saldoConsolidadoAnterior,
     autoAprobar,
+    sinSeguro,
   } = params
 
-  // El seguro ya no se ingresa a mano: se calcula con la regla fija del
-  // negocio (3% si el prestamo es menor a S/330, tarifa plana de S/10
-  // si es mayor) dentro de calcularMontos().
-  const montos = calcularMontos(montoPrestado, tasaInteres)
+  // El seguro se calcula con la regla fija del negocio (3% si el
+  // prestamo es menor a S/330, tarifa plana de S/10 si es mayor) dentro
+  // de calcularMontos(), salvo que se elija "sin seguro" para este
+  // prestamo puntual.
+  const montos = calcularMontos(montoPrestado, tasaInteres, sinSeguro)
   const cronograma = generarCronograma({
     montoTotalAPagar: montos.montoTotalAPagar,
     montoSeguro: montos.montoSeguro,
@@ -140,9 +142,10 @@ export async function actualizarPrestamoConCronograma(prestamoId, params) {
     numeroCuotas,
     fechaInicio,
     fechaEspecifica,
+    sinSeguro,
   } = params
 
-  const montos = calcularMontos(montoPrestado, tasaInteres)
+  const montos = calcularMontos(montoPrestado, tasaInteres, sinSeguro)
   const cronograma = generarCronograma({
     montoTotalAPagar: montos.montoTotalAPagar,
     montoSeguro: montos.montoSeguro,

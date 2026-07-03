@@ -88,6 +88,11 @@ export default function RegistroPrestamo() {
             fechaEspecifica: fechaEspecificaExistente
               ? fechaEspecificaExistente.toISOString().split('T')[0]
               : '',
+            // calcularSeguro() nunca da 0 de forma natural (siempre cobra
+            // algo, aunque sea la tarifa minima) — que el prestamo
+            // guardado tenga montoSeguro 0 solo puede significar que se
+            // eligio "sin seguro" al crearlo.
+            sinSeguro: (existente.montoSeguro || 0) === 0,
           })
         } else if (prestamoOrigenId) {
           const origen = await obtenerPrestamo(prestamoOrigenId)
@@ -135,6 +140,7 @@ export default function RegistroPrestamo() {
     numeroCuotas: '4',
     fechaInicio: HOY,
     fechaEspecifica: '',
+    sinSeguro: false,
   })
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState(null)
@@ -161,7 +167,7 @@ export default function RegistroPrestamo() {
     const monto = montoNuevo + saldoPendienteAnterior
 
     try {
-      const montos = calcularMontos(monto, tasa)
+      const montos = calcularMontos(monto, tasa, form.sinSeguro)
 
       const esFechaEspecifica = form.tipoCuota === TIPO_CUOTA.FECHA_ESPECIFICA
       if (!esFechaEspecifica && (!cuotas || cuotas < 1)) return { montos, cronograma: null }
@@ -196,6 +202,7 @@ export default function RegistroPrestamo() {
           numeroCuotas: parseInt(form.numeroCuotas) || 1,
           fechaInicio: new Date(form.fechaInicio),
           fechaEspecifica: form.fechaEspecifica ? new Date(form.fechaEspecifica) : null,
+          sinSeguro: form.sinSeguro,
         })
         navigate(`/prestamos/${prestamoId}/cuotas`)
         return
@@ -217,6 +224,7 @@ export default function RegistroPrestamo() {
         montoEntregadoNuevo: prestamoOrigenId ? montoNuevo : null,
         saldoConsolidadoAnterior: prestamoOrigenId ? saldoPendienteAnterior : null,
         autoAprobar: esMaestro,
+        sinSeguro: form.sinSeguro,
       })
 
       // Si esto es una renovacion, cerramos el ciclo marcando el
@@ -330,10 +338,28 @@ export default function RegistroPrestamo() {
             )}
 
             {monto > 0 && (
-              <p className="text-xs text-ink-soft -mt-2">
-                Seguro automatico: <span className="font-medium text-ink">{descripcionSeguro(monto)}</span>
-                {' '}(prestamos menores a S/ 330 pagan 3%; S/ 330 a mas, tarifa fija de S/ 10)
-              </p>
+              <div className="-mt-2 space-y-1.5">
+                <label className="flex items-center gap-2 text-xs text-ink">
+                  <input
+                    type="checkbox"
+                    checked={form.sinSeguro}
+                    onChange={(e) => set('sinSeguro', e.target.checked)}
+                    className="h-4 w-4 accent-brand"
+                  />
+                  Sin seguro para este prestamo
+                </label>
+                <p className="text-xs text-ink-soft">
+                  {form.sinSeguro ? (
+                    'Sin seguro (S/ 0.00)'
+                  ) : (
+                    <>
+                      Seguro automatico:{' '}
+                      <span className="font-medium text-ink">{descripcionSeguro(monto)}</span>
+                      {' '}(prestamos menores a S/ 330 pagan 3%; S/ 330 a mas, tarifa fija de S/ 10)
+                    </>
+                  )}
+                </p>
+              </div>
             )}
 
             <Campo label="Tasa de interes %">
@@ -419,9 +445,9 @@ export default function RegistroPrestamo() {
                   valor={preview.montos.montoInteres}
                 />
                 <FilaResumen
-                  label={`Seguro (${descripcionSeguro(monto)})`}
+                  label={form.sinSeguro ? 'Seguro (desactivado)' : `Seguro (${descripcionSeguro(monto)})`}
                   valor={preview.montos.montoSeguro}
-                  nota="incluido en la 1ra cuota"
+                  nota={form.sinSeguro ? undefined : 'incluido en la 1ra cuota'}
                 />
                 <div className="rounded-xl border-2 border-brand bg-surface px-3 py-2.5 mt-1">
                   <FilaResumen

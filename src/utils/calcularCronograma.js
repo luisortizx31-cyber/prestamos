@@ -38,10 +38,16 @@ export function descripcionSeguro(montoPrestado) {
  *
  * @param {number} montoPrestado
  * @param {number} tasaInteres   porcentaje, ej. 10 => 10%
+ * @param {boolean} [sinSeguro]  si es true, el seguro queda en 0 (el
+ *   comisionista/maestro eligio no cobrarlo para este prestamo). Sirve
+ *   ademas como el propio indicador al releer el prestamo despues
+ *   (montoSeguro nunca da 0 de forma natural — calcularSeguro siempre
+ *   devuelve un monto positivo), asi que no hace falta guardar un
+ *   campo aparte para saber si se eligio "sin seguro".
  */
-export function calcularMontos(montoPrestado, tasaInteres) {
+export function calcularMontos(montoPrestado, tasaInteres, sinSeguro = false) {
   const montoInteres = round2(montoPrestado * (tasaInteres / 100))
-  const montoSeguro = calcularSeguro(montoPrestado)
+  const montoSeguro = sinSeguro ? 0 : calcularSeguro(montoPrestado)
   const montoTotalAPagar = round2(montoPrestado + montoInteres)
 
   return {
