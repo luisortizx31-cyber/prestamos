@@ -8,6 +8,7 @@ import { EtiquetaEstadoCliente } from '../shared/EtiquetaEstadoCliente'
 import { BotonOfrecerRenovacion } from '../shared/BotonOfrecerRenovacion'
 import { BotonEditarPrestamo } from '../shared/BotonEditarPrestamo'
 import { ModalCobro } from '../shared/ModalCobro'
+import { ConfirmarClaveMaestro } from '../shared/ConfirmarClaveMaestro'
 import { useAuth } from '../../context/AuthContext'
 import { useRole } from '../../hooks/useRole'
 import {
@@ -30,6 +31,10 @@ export default function DetalleCliente() {
   const [cargando, setCargando] = useState(true)
   const [prestamoExpandido, setPrestamoExpandido] = useState(null)
   const [cuotaActiva, setCuotaActiva] = useState(null) // { cuota, prestamoId }
+  // Cuando el Maestro cobra en un cliente que no es suyo, primero se le
+  // pide reconfirmar su PIN (ver ConfirmarClaveMaestro.jsx) — esto
+  // guarda la cuota en espera mientras tanto.
+  const [confirmacionPendiente, setConfirmacionPendiente] = useState(null) // { cuota, prestamoId }
   // Las fotos del DNI no se cargan hasta que el usuario las pide -
   // evita gastar ancho de banda/lecturas de Storage en cada visita.
   const [verFotosDni, setVerFotosDni] = useState(false)
@@ -84,6 +89,17 @@ export default function DetalleCliente() {
   // "comisionista" (nuevo prestamo, editar, cobrar) en los que registro
   // el mismo desde "Mi Cartera", no en los de otros comisionistas.
   const esPropietario = cliente.comisionistaId === usuarioAuth?.uid
+
+  // El Maestro puede cobrar cuotas de CUALQUIER cliente (no solo los
+  // suyos), pero si el cliente no es suyo primero debe reconfirmar su
+  // PIN (ver ConfirmarClaveMaestro.jsx) antes de abrir el ModalCobro.
+  function handleCobrar(cuota, prestamoId) {
+    if (esPropietario) {
+      setCuotaActiva({ cuota, prestamoId })
+    } else {
+      setConfirmacionPendiente({ cuota, prestamoId })
+    }
+  }
 
   const totalPrestado = prestamos.reduce((acc, p) => acc + (p.montoPrestado || 0), 0)
   const prestamoVigente = obtenerPrestamoVigente(prestamos)
@@ -300,7 +316,7 @@ export default function DetalleCliente() {
                       comisionistaId={usuarioAuth?.uid}
                       esMaestro={esMaestro}
                       esPropietario={esPropietario}
-                      onCobrar={(cuota) => setCuotaActiva({ cuota, prestamoId: p.id })}
+                      onCobrar={(cuota) => handleCobrar(cuota, p.id)}
                     />
                   )}
                 </div>
@@ -321,9 +337,24 @@ export default function DetalleCliente() {
         <ModalCobro
           cuota={cuotaActiva.cuota}
           prestamoId={cuotaActiva.prestamoId}
-          comisionistaId={usuarioAuth?.uid}
+          // El cobro siempre queda a nombre del comisionista DUEÑO del
+          // cliente (aunque quien lo registre sea el Maestro cubriendolo)
+          // — asi la comision y la visibilidad de sus propias cuotas no
+          // se le rompen al comisionista original. Para sus propios
+          // clientes esto es lo mismo que usuarioAuth.uid de todos modos.
+          comisionistaId={cliente.comisionistaId}
           clienteId={clienteId}
           onCerrar={() => setCuotaActiva(null)}
+        />
+      )}
+
+      {confirmacionPendiente && (
+        <ConfirmarClaveMaestro
+          onConfirmar={() => {
+            setCuotaActiva(confirmacionPendiente)
+            setConfirmacionPendiente(null)
+          }}
+          onCancelar={() => setConfirmacionPendiente(null)}
         />
       )}
     </div>
@@ -475,7 +506,7 @@ function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCo
                   S/ {cuota.monto.toFixed(2)}
                 </span>
                 {esPendiente &&
-                  esPropietario &&
+                  (esPropietario || esMaestro) &&
                   !prestamo.renovado &&
                   solicitudEstaAprobada(prestamo) && (
                     <button

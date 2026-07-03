@@ -71,6 +71,27 @@ export async function cambiarPin(dni, pinActual, pinNuevo) {
 }
 
 /**
+ * Verifica que un PIN sea el correcto para el usuario que tiene la
+ * sesion activa, sin cambiar nada — se usa como "confirmacion de
+ * identidad" antes de una accion sensible (ej. el Maestro cobrando una
+ * cuota de un cliente que no es suyo, ver ConfirmarClaveMaestro.jsx).
+ * Reutiliza el mismo mecanismo de reautenticacion que cambiarPin(): si
+ * el PIN esta mal, reauthenticateWithCredential lanza un error.
+ */
+export async function verificarPin(dni, pin) {
+  if (!validarPin(pin)) {
+    throw new Error('El PIN debe tener 6 digitos numericos.')
+  }
+  const user = auth.currentUser
+  if (!user) {
+    throw new Error('No hay sesion activa.')
+  }
+  const correoVirtual = construirCorreoVirtual(dni)
+  const credential = EmailAuthProvider.credential(correoVirtual, pin)
+  await reauthenticateWithCredential(user, credential)
+}
+
+/**
  * Lee el documento /usuarios/{uid} para obtener el rol y los datos de
  * perfil. El rol vive en Firestore (no en Custom Claims) para evitar
  * depender de Cloud Functions / plan Blaze en esta primera fase. Las

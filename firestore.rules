@@ -188,8 +188,13 @@ service cloud.firestore {
     match /codigos_yape_registrados/{codigo} {
       allow get: if esMaestro() || esComisionista();
       allow list: if esMaestro();
-      allow create: if (esComisionista() || esMaestro()) &&
-        request.resource.data.comisionistaId == request.auth.uid;
+      // El Maestro puede cobrar cuotas de clientes que no son suyos
+      // (ver ConfirmarClaveMaestro.jsx) — el cobro se registra a nombre
+      // del comisionista DUEÑO del cliente, no del Maestro, asi que aqui
+      // el comisionistaId del documento no necesariamente es
+      // request.auth.uid cuando quien escribe es el Maestro.
+      allow create: if (esComisionista() && request.resource.data.comisionistaId == request.auth.uid) ||
+        esMaestro();
       allow update: if false;
       // Solo el Maestro puede borrar (libera el codigo al rechazar una
       // cuota desde conciliacionService.rechazarCuota). El comisionista
