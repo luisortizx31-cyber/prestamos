@@ -43,12 +43,20 @@ export default function DashboardComisionista() {
           </p>
           <h1 className="text-lg font-semibold text-ink">{perfil?.nombre}</h1>
         </div>
-        <button
-          onClick={() => logout()}
-          className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-soft"
-        >
-          Salir
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/cambiar-pin"
+            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-soft"
+          >
+            Cambiar PIN
+          </Link>
+          <button
+            onClick={() => logout()}
+            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-soft"
+          >
+            Salir
+          </button>
+        </div>
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-6">

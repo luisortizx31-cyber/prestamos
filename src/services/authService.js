@@ -2,8 +2,11 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
 } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '../config/firebase'
 import { construirCorreoVirtual, validarDni, validarPin } from '../utils/authVirtual'
 
@@ -37,6 +40,34 @@ export async function loginConDni(dni, pin) {
 
 export async function logout() {
   await signOut(auth)
+}
+
+/**
+ * Permite que el propio usuario (comisionista o maestro) cambie su PIN.
+ * Se reautentica primero con el PIN actual — esto sirve tanto para
+ * confirmar que quien esta cambiando el PIN lo conoce, como para evitar
+ * el error "requires-recent-login" que Firebase Auth exige antes de
+ * updatePassword() si el login fue hace rato.
+ *
+ * Ademas del cambio real en Firebase Auth, se guarda una copia del PIN
+ * nuevo en Firestore (usuarios/{uid}.pin) para que el Maestro pueda
+ * consultarlo despues desde el Tab "Ajustes" si el comisionista lo
+ * vuelve a olvidar.
+ */
+export async function cambiarPin(dni, pinActual, pinNuevo) {
+  if (!validarPin(pinActual) || !validarPin(pinNuevo)) {
+    throw new Error('El PIN debe tener 6 digitos numericos.')
+  }
+  const user = auth.currentUser
+  if (!user) {
+    throw new Error('No hay sesion activa.')
+  }
+
+  const correoVirtual = construirCorreoVirtual(dni)
+  const credential = EmailAuthProvider.credential(correoVirtual, pinActual)
+  await reauthenticateWithCredential(user, credential)
+  await updatePassword(user, pinNuevo)
+  await updateDoc(doc(db, 'usuarios', user.uid), { pin: pinNuevo })
 }
 
 /**

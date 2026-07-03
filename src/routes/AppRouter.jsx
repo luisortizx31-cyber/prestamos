@@ -14,6 +14,7 @@ import DetalleCliente from '../features/comisionista/DetalleCliente'
 import RegistroPrestamo from '../features/comisionista/RegistroPrestamo'
 import ChecklistCuotas from '../features/comisionista/ChecklistCuotas'
 import ChecklistDelDia from '../features/comisionista/ChecklistDelDia'
+import CambiarPin from '../features/comisionista/CambiarPin'
 
 export function AppRouter() {
   return (
@@ -110,6 +111,15 @@ export function AppRouter() {
           element={
             <ProtectedRoute allowedRoles={[ROLES.COLLECTOR]}>
               <ChecklistDelDia />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/cambiar-pin"
+          element={
+            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR, ROLES.MASTER]}>
+              <CambiarPin />
             </ProtectedRoute>
           }
         />
