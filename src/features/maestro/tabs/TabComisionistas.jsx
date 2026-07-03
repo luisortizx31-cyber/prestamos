@@ -75,11 +75,17 @@ export default function TabComisionistas() {
         </Link>
       </div>
 
-      <div className="mb-4 rounded-2xl border border-line bg-surface p-5">
-        <p className="text-sm text-ink-soft">Total prestado (todos los comisionistas)</p>
-        <p className="money mt-1 text-3xl font-semibold text-brand">
-          S/ {granTotal.toFixed(2)}
-        </p>
+      <div className="mb-4 flex items-center justify-between rounded-2xl bg-brand p-4 text-white">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-white/70">Cartera total</p>
+          <p className="text-2xl font-bold">
+            {filas.length} comisionista{filas.length !== 1 ? 's' : ''}
+          </p>
+          <p className="money text-xs text-white/70">
+            S/ {granTotal.toFixed(2)} prestado en total
+          </p>
+        </div>
+        <span className="text-3xl">🧑‍💼</span>
       </div>
 
       <input
