@@ -37,7 +37,7 @@ import { construirCorreoVirtual, validarDni, validarPin } from '../utils/authVir
  * de 6 digitos como contraseña ante Firebase Auth. El comisionista, al
  * loguearse, solo ve "DNI" y "PIN" — nunca un correo.
  */
-export async function crearComisionista({ nombre, dni, pin, telefono }) {
+export async function crearComisionista({ nombre, dni, pin, telefono, direccion }) {
   if (!validarDni(dni)) {
     throw new Error('El DNI debe tener 8 digitos numericos.')
   }
@@ -63,6 +63,7 @@ export async function crearComisionista({ nombre, dni, pin, telefono }) {
       dni: dni.trim(),
       correoVirtual, // guardado solo como referencia/debug, no se usa en la UI
       telefono: telefono || null,
+      direccion: direccion || null,
       role: ROLES.COLLECTOR,
       activo: true,
       creadoEn: serverTimestamp(),

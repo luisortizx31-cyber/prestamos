@@ -6,7 +6,7 @@ import { consultarDni } from '../../services/dniLookupService'
 
 export default function RegistroComisionista() {
   const navigate = useNavigate()
-  const [form, setForm] = useState({ nombre: '', dni: '', pin: '', telefono: '' })
+  const [form, setForm] = useState({ nombre: '', dni: '', pin: '', telefono: '', direccion: '' })
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState(null)
 
@@ -91,12 +91,6 @@ export default function RegistroComisionista() {
         <h1 className="mb-4 text-lg font-semibold text-ink">Nuevo comisionista</h1>
 
         <form onSubmit={handleSubmit} className="rounded-2xl border border-line bg-surface p-5">
-          <Campo
-            label="Nombre completo"
-            value={form.nombre}
-            onChange={(v) => actualizar('nombre', v)}
-          />
-
           <div className="mb-1">
             <label className="block text-sm font-medium text-ink mb-1">DNI</label>
             <input
@@ -134,6 +128,12 @@ export default function RegistroComisionista() {
             )}
           </div>
 
+          <Campo
+            label="Nombre completo"
+            value={form.nombre}
+            onChange={(v) => actualizar('nombre', v)}
+          />
+
           <div>
             <label className="block text-sm font-medium text-ink mb-1">
               PIN (6 digitos, el comisionista lo usara para entrar)
@@ -154,6 +154,13 @@ export default function RegistroComisionista() {
             label="Telefono (opcional)"
             value={form.telefono}
             onChange={(v) => actualizar('telefono', v)}
+            required={false}
+          />
+
+          <Campo
+            label="Direccion (opcional)"
+            value={form.direccion}
+            onChange={(v) => actualizar('direccion', v)}
             required={false}
           />
 
