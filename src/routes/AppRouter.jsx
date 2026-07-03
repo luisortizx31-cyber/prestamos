@@ -88,6 +88,15 @@ export function AppRouter() {
         />
 
         <Route
+          path="/clientes/:clienteId/prestamos/:prestamoId/editar"
+          element={
+            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR]}>
+              <RegistroPrestamo />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/prestamos/:prestamoId/cuotas"
           element={
             <ProtectedRoute allowedRoles={[ROLES.COLLECTOR, ROLES.MASTER]}>

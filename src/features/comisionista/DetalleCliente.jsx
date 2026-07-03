@@ -6,6 +6,7 @@ import { listarPrestamosPorCliente } from '../../services/prestamosService'
 import { recalcularEstadoCliente } from '../../services/clienteEstadoService'
 import { EtiquetaEstadoCliente } from '../shared/EtiquetaEstadoCliente'
 import { BotonOfrecerRenovacion } from '../shared/BotonOfrecerRenovacion'
+import { BotonEditarPrestamo } from '../shared/BotonEditarPrestamo'
 import { ModalCobro } from '../shared/ModalCobro'
 import { useAuth } from '../../context/AuthContext'
 import { useRole } from '../../hooks/useRole'
@@ -297,7 +298,10 @@ export default function DetalleCliente() {
                 </div>
 
                 {!esMaestro && (
-                  <BotonOfrecerRenovacion prestamo={p} clienteId={clienteId} />
+                  <>
+                    <BotonEditarPrestamo prestamo={p} clienteId={clienteId} />
+                    <BotonOfrecerRenovacion prestamo={p} clienteId={clienteId} />
+                  </>
                 )}
               </li>
             )

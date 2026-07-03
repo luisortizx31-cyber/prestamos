@@ -39,6 +39,16 @@ service cloud.firestore {
         (datos.estadoSolicitud != 'pendiente' && datos.estadoSolicitud != 'rechazado');
     }
 
+    // EDICION DE SOLICITUD: el comisionista puede editar las condiciones
+    // de su propio prestamo (y regenerar su cronograma de cuotas) SOLO
+    // mientras sigue "pendiente" de aprobacion — en ese estado ninguna
+    // cuota pudo haberse cobrado todavia (ver creditoAprobado() arriba),
+    // asi que no hay riesgo de pisar pagos reales.
+    function prestamoPendiente(prestamoId) {
+      let datos = get(/databases/$(database)/documents/prestamos/$(prestamoId)).data;
+      return ('estadoSolicitud' in datos) && datos.estadoSolicitud == 'pendiente';
+    }
+
     // ---------------------------------------------------------------
     // Acceso especial para COLLECTION GROUP QUERIES sobre /cuotas
     // (ej. Conciliacion de Caja necesita ver TODAS las cuotas
@@ -94,8 +104,16 @@ service cloud.firestore {
       allow list: if esMaestro() || esComisionista();
       allow create: if esComisionista() &&
         request.resource.data.comisionistaId == request.auth.uid;
+      // El comisionista solo puede editar SU prestamo mientras sigue
+      // "pendiente" — una vez aprobado o rechazado por el Maestro, las
+      // condiciones ya no se pueden tocar (ver RegistroPrestamo.jsx,
+      // modo edicion, y BotonEditarPrestamo.jsx que oculta el boton
+      // fuera de ese estado).
       allow update: if esMaestro() ||
-        (esComisionista() && resource.data.comisionistaId == request.auth.uid);
+        (esComisionista() &&
+         resource.data.comisionistaId == request.auth.uid &&
+         'estadoSolicitud' in resource.data &&
+         resource.data.estadoSolicitud == 'pendiente');
       allow delete: if esMaestro();
 
       // /prestamos/{prestamoId}/cuotas
@@ -127,12 +145,21 @@ service cloud.firestore {
 
         allow create: if esComisionista() &&
           request.resource.data.comisionistaId == request.auth.uid;
+        // El "|| prestamoPendiente(...)" es lo que permite regenerar el
+        // cronograma al editar una solicitud pendiente (RegistroPrestamo.jsx
+        // borra y vuelve a crear las cuotas). En ese estado nunca se
+        // puede escribir estado == 'pagado' (ya lo bloquea la condicion
+        // de arriba), asi que no hay riesgo de aprobar cobros sin pasar
+        // por el Maestro.
         allow update: if esMaestro() ||
           (esComisionista() &&
            resource.data.comisionistaId == request.auth.uid &&
            request.resource.data.estado != 'pagado' &&
-           creditoAprobado(prestamoId));
-        allow delete: if esMaestro();
+           (creditoAprobado(prestamoId) || prestamoPendiente(prestamoId)));
+        allow delete: if esMaestro() ||
+          (esComisionista() &&
+           resource.data.comisionistaId == request.auth.uid &&
+           prestamoPendiente(prestamoId));
       }
     }
 

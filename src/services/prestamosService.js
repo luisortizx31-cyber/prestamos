@@ -111,6 +111,70 @@ export async function crearPrestamoConCronograma(params) {
   return prestamoRef.id
 }
 
+/**
+ * Reemplaza las condiciones y el cronograma de un préstamo YA EXISTENTE.
+ * Solo se usa para editar una solicitud mientras sigue "pendiente" (ver
+ * RegistroPrestamo.jsx, modo edicion) — en ese estado ninguna cuota
+ * pudo haberse cobrado todavia (creditoAprobado() lo bloquea en las
+ * Security Rules), asi que borrar y regenerar todas las cuotas es
+ * seguro y no pierde ningun pago real.
+ *
+ * @param {string} prestamoId
+ * @param {object} params  mismos campos que crearPrestamoConCronograma,
+ *                 sin los campos de renovacion (un prestamo editado no
+ *                 cambia de comisionista/cliente ni su origen).
+ */
+export async function actualizarPrestamoConCronograma(prestamoId, params) {
+  const {
+    clienteId,
+    comisionistaId,
+    montoPrestado,
+    tasaInteres,
+    tipoCuota,
+    numeroCuotas,
+    fechaInicio,
+    fechaEspecifica,
+  } = params
+
+  const montos = calcularMontos(montoPrestado, tasaInteres)
+  const cronograma = generarCronograma({
+    montoTotalAPagar: montos.montoTotalAPagar,
+    montoSeguro: montos.montoSeguro,
+    tipoCuota,
+    numeroCuotas,
+    fechaInicio,
+    fechaEspecifica,
+  })
+
+  const prestamoRef = doc(db, 'prestamos', prestamoId)
+  const cuotasRef = collection(prestamoRef, 'cuotas')
+  const cuotasExistentes = await getDocs(cuotasRef)
+
+  const batch = writeBatch(db)
+
+  batch.update(prestamoRef, {
+    tasaInteres,
+    tipoCuota,
+    fechaInicio,
+    ...montos,
+    totalCuotas: cronograma.length,
+  })
+
+  cuotasExistentes.docs.forEach((d) => batch.delete(d.ref))
+
+  cronograma.forEach((cuota) => {
+    const cuotaRef = doc(cuotasRef)
+    batch.set(cuotaRef, {
+      ...cuota,
+      comisionistaId,
+      clienteId,
+      prestamoId,
+    })
+  })
+
+  await batch.commit()
+}
+
 export async function obtenerPrestamo(prestamoId) {
   const snap = await getDoc(doc(db, 'prestamos', prestamoId))
   return snap.exists() ? { id: snap.id, ...snap.data() } : null

@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
   crearPrestamoConCronograma,
+  actualizarPrestamoConCronograma,
   obtenerPrestamo,
   marcarPrestamoRenovado,
   listarPrestamosPorCliente,
@@ -10,12 +11,13 @@ import {
 import { listarCuotasDePrestamo } from '../../services/cuotasService'
 import { calcularMontos, generarCronograma, descripcionSeguro } from '../../utils/calcularCronograma'
 import { debeOfrecerRenovacion, obtenerPrestamoVigente } from '../../utils/renovacion'
-import { TIPO_CUOTA, TIPO_CUOTA_LABELS, ESTADO_CUOTA } from '../../models/prestamo'
+import { TIPO_CUOTA, TIPO_CUOTA_LABELS, ESTADO_CUOTA, ESTADO_SOLICITUD } from '../../models/prestamo'
 
 const HOY = new Date().toISOString().split('T')[0]
 
 export default function RegistroPrestamo() {
-  const { clienteId } = useParams()
+  const { clienteId, prestamoId } = useParams()
+  const esEdicion = Boolean(prestamoId)
   const [searchParams] = useSearchParams()
   const prestamoOrigenId = searchParams.get('renovarDe')
   const { usuarioAuth } = useAuth()
@@ -38,7 +40,43 @@ export default function RegistroPrestamo() {
       setValidando(true)
       setBloqueo(null)
       try {
-        if (prestamoOrigenId) {
+        if (esEdicion) {
+          const existente = await obtenerPrestamo(prestamoId)
+          if (!activo) return
+          if (!existente || existente.comisionistaId !== usuarioAuth.uid) {
+            setBloqueo({ motivo: 'no_encontrado' })
+            return
+          }
+          if (existente.estadoSolicitud !== ESTADO_SOLICITUD.PENDIENTE) {
+            setBloqueo({ motivo: 'no_editable' })
+            return
+          }
+          const cuotas = await listarCuotasDePrestamo(prestamoId, usuarioAuth.uid)
+          if (!activo) return
+
+          const fecha = existente.fechaInicio?.toDate
+            ? existente.fechaInicio.toDate()
+            : new Date(existente.fechaInicio)
+          const esFechaEspecificaExistente = existente.tipoCuota === TIPO_CUOTA.FECHA_ESPECIFICA
+          const primeraCuota = cuotas.sort((a, b) => a.numero - b.numero)[0]
+          const fechaEspecificaExistente =
+            esFechaEspecificaExistente && primeraCuota
+              ? primeraCuota.fechaVencimiento?.toDate
+                ? primeraCuota.fechaVencimiento.toDate()
+                : new Date(primeraCuota.fechaVencimiento)
+              : null
+
+          setForm({
+            montoPrestado: String(existente.montoPrestado ?? ''),
+            tasaInteres: String(existente.tasaInteres ?? ''),
+            tipoCuota: existente.tipoCuota,
+            numeroCuotas: String(existente.totalCuotas ?? ''),
+            fechaInicio: fecha.toISOString().split('T')[0],
+            fechaEspecifica: fechaEspecificaExistente
+              ? fechaEspecificaExistente.toISOString().split('T')[0]
+              : '',
+          })
+        } else if (prestamoOrigenId) {
           const origen = await obtenerPrestamo(prestamoOrigenId)
           if (!activo) return
           if (!debeOfrecerRenovacion(origen)) {
@@ -72,7 +110,7 @@ export default function RegistroPrestamo() {
     }
     validar()
     return () => { activo = false }
-  }, [prestamoOrigenId, clienteId])
+  }, [prestamoOrigenId, clienteId, esEdicion, prestamoId])
 
   // Valores por defecto del negocio: la gran mayoria de prestamos son
   // semanales, 20% de interes, 4 cuotas — asi el comisionista solo
@@ -135,6 +173,21 @@ export default function RegistroPrestamo() {
     setError(null)
     setEnviando(true)
     try {
+      if (esEdicion) {
+        await actualizarPrestamoConCronograma(prestamoId, {
+          clienteId,
+          comisionistaId: usuarioAuth.uid,
+          montoPrestado: parseFloat(form.montoPrestado),
+          tasaInteres: parseFloat(form.tasaInteres),
+          tipoCuota: form.tipoCuota,
+          numeroCuotas: parseInt(form.numeroCuotas) || 1,
+          fechaInicio: new Date(form.fechaInicio),
+          fechaEspecifica: form.fechaEspecifica ? new Date(form.fechaEspecifica) : null,
+        })
+        navigate(`/prestamos/${prestamoId}/cuotas`)
+        return
+      }
+
       const montoNuevo = parseFloat(form.montoPrestado)
       const prestamoId = await crearPrestamoConCronograma({
         clienteId,
@@ -203,10 +256,10 @@ export default function RegistroPrestamo() {
         </button>
         <div>
           <p className="font-mono text-xs tracking-widest text-ink-soft uppercase">
-            {prestamoOrigenId ? 'Renovacion' : 'Nuevo prestamo'}
+            {esEdicion ? 'Editar solicitud' : prestamoOrigenId ? 'Renovacion' : 'Nuevo prestamo'}
           </p>
           <h1 className="text-lg font-semibold text-ink">
-            {prestamoOrigenId ? 'Renovar prestamo' : 'Registrar prestamo'}
+            {esEdicion ? 'Editar prestamo' : prestamoOrigenId ? 'Renovar prestamo' : 'Registrar prestamo'}
           </h1>
         </div>
       </header>
@@ -409,8 +462,9 @@ export default function RegistroPrestamo() {
           )}
 
           <p className="text-xs text-ink-soft text-center">
-            El credito quedara "pendiente de aprobacion". No podras cobrar
-            ninguna cuota hasta que el administrador lo apruebe.
+            {esEdicion
+              ? 'Los cambios se guardaran y la solicitud seguira pendiente de aprobacion del administrador.'
+              : 'El credito quedara "pendiente de aprobacion". No podras cobrar ninguna cuota hasta que el administrador lo apruebe.'}
           </p>
 
           <button
@@ -418,7 +472,9 @@ export default function RegistroPrestamo() {
             disabled={enviando || !preview?.cronograma}
             className="w-full rounded-xl bg-brand py-3 font-semibold text-white disabled:opacity-50 active:scale-[0.99] transition-transform"
           >
-            {enviando ? 'Enviando...' : 'Enviar solicitud al administrador'}
+            {enviando
+              ? esEdicion ? 'Guardando...' : 'Enviando...'
+              : esEdicion ? 'Guardar cambios' : 'Enviar solicitud al administrador'}
           </button>
         </form>
       </div>
@@ -455,6 +511,14 @@ function PantallaBloqueo({ bloqueo, clienteId, onVolver }) {
     detalle =
       'El prestamo que intentas renovar ya no esta disponible (puede que ' +
       'ya se renovo, ya se termino de pagar, o aun no tiene ninguna cuota confirmada).'
+  } else if (motivo === 'no_editable') {
+    titulo = 'Este prestamo ya no se puede editar'
+    detalle =
+      'Solo se puede editar mientras esta "pendiente de aprobacion". Este ' +
+      'ya fue aprobado o rechazado por el administrador.'
+  } else if (motivo === 'no_encontrado') {
+    titulo = 'Prestamo no encontrado'
+    detalle = 'No se encontro este prestamo o no te pertenece.'
   }
 
   return (
