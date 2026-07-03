@@ -52,6 +52,7 @@ export async function crearPrestamoConCronograma(params) {
     prestamoOrigenId,
     montoEntregadoNuevo,
     saldoConsolidadoAnterior,
+    autoAprobar,
   } = params
 
   // El seguro ya no se ingresa a mano: se calcula con la regla fija del
@@ -86,7 +87,12 @@ export async function crearPrestamoConCronograma(params) {
     // cuota hasta que el Maestro apruebe (ver Tab "Solicitudes de
     // Credito" / solicitudesCreditoService.js). Se aplica tanto en la
     // UI como en las Security Rules.
-    estadoSolicitud: ESTADO_SOLICITUD.PENDIENTE,
+    //
+    // autoAprobar: cuando el propio Maestro registra el prestamo desde
+    // "Mi Cartera" (actuando como su propio comisionista), no tiene
+    // sentido que se apruebe a si mismo — queda aprobado de una vez.
+    estadoSolicitud: autoAprobar ? ESTADO_SOLICITUD.APROBADO : ESTADO_SOLICITUD.PENDIENTE,
+    ...(autoAprobar ? { fechaAprobacionCredito: serverTimestamp() } : {}),
     creadoEn: serverTimestamp(),
   })
 

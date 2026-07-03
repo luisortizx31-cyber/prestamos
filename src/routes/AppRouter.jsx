@@ -63,7 +63,7 @@ export function AppRouter() {
         <Route
           path="/clientes/nuevo"
           element={
-            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR]}>
+            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR, ROLES.MASTER]}>
               <RegistroCliente />
             </ProtectedRoute>
           }
@@ -81,7 +81,7 @@ export function AppRouter() {
         <Route
           path="/clientes/:clienteId/prestamos/nuevo"
           element={
-            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR]}>
+            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR, ROLES.MASTER]}>
               <RegistroPrestamo />
             </ProtectedRoute>
           }
@@ -90,7 +90,7 @@ export function AppRouter() {
         <Route
           path="/clientes/:clienteId/prestamos/:prestamoId/editar"
           element={
-            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR]}>
+            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR, ROLES.MASTER]}>
               <RegistroPrestamo />
             </ProtectedRoute>
           }

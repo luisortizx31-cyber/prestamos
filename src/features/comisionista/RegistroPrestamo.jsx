@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { useRole } from '../../hooks/useRole'
 import {
   crearPrestamoConCronograma,
   actualizarPrestamoConCronograma,
@@ -21,6 +22,7 @@ export default function RegistroPrestamo() {
   const [searchParams] = useSearchParams()
   const prestamoOrigenId = searchParams.get('renovarDe')
   const { usuarioAuth } = useAuth()
+  const { esMaestro } = useRole()
   const navigate = useNavigate()
 
   const [prestamoOrigen, setPrestamoOrigen] = useState(null)
@@ -47,12 +49,23 @@ export default function RegistroPrestamo() {
             setBloqueo({ motivo: 'no_encontrado' })
             return
           }
-          if (existente.estadoSolicitud !== ESTADO_SOLICITUD.PENDIENTE) {
+          const cuotas = await listarCuotasDePrestamo(prestamoId, usuarioAuth.uid)
+          if (!activo) return
+
+          // El comisionista solo puede editar mientras sigue "pendiente"
+          // (ahi nunca se pudo cobrar nada). El Maestro, en cambio, se
+          // aprueba a si mismo al crear (autoAprobar) — para el, la
+          // condicion real es que ninguna cuota tenga todavia un cobro
+          // registrado (ni pagado ni por_verificar), sin importar el
+          // estadoSolicitud.
+          const sinCobros = cuotas.every((c) => c.estado === ESTADO_CUOTA.PENDIENTE)
+          const puedeEditar = esMaestro
+            ? sinCobros
+            : existente.estadoSolicitud === ESTADO_SOLICITUD.PENDIENTE
+          if (!puedeEditar) {
             setBloqueo({ motivo: 'no_editable' })
             return
           }
-          const cuotas = await listarCuotasDePrestamo(prestamoId, usuarioAuth.uid)
-          if (!activo) return
 
           const fecha = existente.fechaInicio?.toDate
             ? existente.fechaInicio.toDate()
@@ -110,7 +123,7 @@ export default function RegistroPrestamo() {
     }
     validar()
     return () => { activo = false }
-  }, [prestamoOrigenId, clienteId, esEdicion, prestamoId])
+  }, [prestamoOrigenId, clienteId, esEdicion, prestamoId, esMaestro])
 
   // Valores por defecto del negocio: la gran mayoria de prestamos son
   // semanales, 20% de interes, 4 cuotas — asi el comisionista solo
@@ -203,6 +216,7 @@ export default function RegistroPrestamo() {
         prestamoOrigenId: prestamoOrigenId || null,
         montoEntregadoNuevo: prestamoOrigenId ? montoNuevo : null,
         saldoConsolidadoAnterior: prestamoOrigenId ? saldoPendienteAnterior : null,
+        autoAprobar: esMaestro,
       })
 
       // Si esto es una renovacion, cerramos el ciclo marcando el
@@ -463,7 +477,11 @@ export default function RegistroPrestamo() {
 
           <p className="text-xs text-ink-soft text-center">
             {esEdicion
-              ? 'Los cambios se guardaran y la solicitud seguira pendiente de aprobacion del administrador.'
+              ? esMaestro
+                ? 'Los cambios se guardaran de inmediato.'
+                : 'Los cambios se guardaran y la solicitud seguira pendiente de aprobacion del administrador.'
+              : esMaestro
+              ? 'Como sos el administrador, este credito queda aprobado automaticamente — no pasa por "Solicitudes".'
               : 'El credito quedara "pendiente de aprobacion". No podras cobrar ninguna cuota hasta que el administrador lo apruebe.'}
           </p>
 
@@ -474,7 +492,11 @@ export default function RegistroPrestamo() {
           >
             {enviando
               ? esEdicion ? 'Guardando...' : 'Enviando...'
-              : esEdicion ? 'Guardar cambios' : 'Enviar solicitud al administrador'}
+              : esEdicion
+              ? 'Guardar cambios'
+              : esMaestro
+              ? 'Registrar prestamo'
+              : 'Enviar solicitud al administrador'}
           </button>
         </form>
       </div>
@@ -514,8 +536,8 @@ function PantallaBloqueo({ bloqueo, clienteId, onVolver }) {
   } else if (motivo === 'no_editable') {
     titulo = 'Este prestamo ya no se puede editar'
     detalle =
-      'Solo se puede editar mientras esta "pendiente de aprobacion". Este ' +
-      'ya fue aprobado o rechazado por el administrador.'
+      'Ya tiene al menos un cobro registrado (o ya fue aprobado/rechazado ' +
+      'por el administrador), asi que sus condiciones ya no se pueden modificar.'
   } else if (motivo === 'no_encontrado') {
     titulo = 'Prestamo no encontrado'
     detalle = 'No se encontro este prestamo o no te pertenece.'

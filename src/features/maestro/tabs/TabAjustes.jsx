@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { limpiarTodoElSistema } from '../../../services/resetService'
+import { listarComisionistas } from '../../../services/comisionistasService'
 
 const PALABRA_CONFIRMACION = 'BORRAR'
 
@@ -7,6 +8,28 @@ export default function TabAjustes() {
   const [palabra, setPalabra] = useState('')
   const [estado, setEstado] = useState('idle') // idle | cargando | ok | error
   const [error, setError] = useState(null)
+
+  const [comisionistas, setComisionistas] = useState([])
+  const [cargandoComisionistas, setCargandoComisionistas] = useState(true)
+  const [errorComisionistas, setErrorComisionistas] = useState(null)
+  const [claveVisible, setClaveVisible] = useState(null) // uid del comisionista con la clave destapada
+
+  useEffect(() => {
+    async function cargar() {
+      setCargandoComisionistas(true)
+      setErrorComisionistas(null)
+      try {
+        const data = await listarComisionistas()
+        setComisionistas(data)
+      } catch (err) {
+        console.error('[TabAjustes] Error al listar comisionistas:', err)
+        setErrorComisionistas('No se pudieron cargar los comisionistas.')
+      } finally {
+        setCargandoComisionistas(false)
+      }
+    }
+    cargar()
+  }, [])
 
   async function handleLimpiar() {
     if (palabra !== PALABRA_CONFIRMACION) return
@@ -30,6 +53,58 @@ export default function TabAjustes() {
         <p className="mt-1 text-sm text-ink-soft">
           Herramientas de administración avanzadas.
         </p>
+      </div>
+
+      {/* Datos completos de comisionistas, incluida su clave de acceso */}
+      <div className="rounded-2xl border border-line bg-surface p-5 space-y-4">
+        <div>
+          <h3 className="text-base font-semibold text-ink">Comisionistas registrados</h3>
+          <p className="mt-1 text-xs text-ink-soft">
+            Datos completos de cada comisionista, incluida su clave (PIN) de
+            acceso — util si un comisionista la olvida. Toca "Ver clave"
+            para destaparla.
+          </p>
+        </div>
+
+        {cargandoComisionistas && <p className="text-sm text-ink-soft">Cargando…</p>}
+        {errorComisionistas && <p className="text-sm text-danger">{errorComisionistas}</p>}
+
+        {!cargandoComisionistas && !errorComisionistas && comisionistas.length === 0 && (
+          <p className="text-sm text-ink-soft">Todavia no hay comisionistas registrados.</p>
+        )}
+
+        {!cargandoComisionistas && !errorComisionistas && comisionistas.length > 0 && (
+          <ul className="space-y-3">
+            {comisionistas.map((c) => {
+              const uid = c.uid ?? c.id
+              const claveDestapada = claveVisible === uid
+              return (
+                <li key={uid} className="rounded-xl border border-line bg-paper p-4 space-y-1.5 text-sm">
+                  <p className="font-semibold text-ink">{c.nombre}</p>
+                  <FilaDato label="DNI" valor={c.dni} />
+                  <FilaDato label="Telefono" valor={c.telefono || '—'} />
+                  <FilaDato label="Direccion" valor={c.direccion || '—'} />
+                  <div className="flex items-center justify-between">
+                    <span className="text-ink-soft">Clave (PIN)</span>
+                    <span className="flex items-center gap-2">
+                      <span className="font-mono font-medium text-ink">
+                        {claveDestapada ? (c.pin || '—') : '••••••'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setClaveVisible(claveDestapada ? null : uid)}
+                        className="rounded-lg border border-line px-2 py-0.5 text-xs text-ink-soft active:scale-95 transition-transform"
+                      >
+                        {claveDestapada ? 'Ocultar' : 'Ver clave'}
+                      </button>
+                    </span>
+                  </div>
+                  <FilaDato label="Activo" valor={c.activo === false ? 'No' : 'Si'} />
+                </li>
+              )
+            })}
+          </ul>
+        )}
       </div>
 
       {/* Zona de peligro */}
@@ -91,6 +166,15 @@ export default function TabAjustes() {
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+function FilaDato({ label, valor }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-ink-soft">{label}</span>
+      <span className="font-medium text-ink">{valor}</span>
     </div>
   )
 }

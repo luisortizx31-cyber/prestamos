@@ -3,19 +3,21 @@ import { logout } from '../../services/authService'
 import TabCobranza from './tabs/TabCobranza'
 import TabComisionistas from './tabs/TabComisionistas'
 import TabSolicitudesCredito from './tabs/TabSolicitudesCredito'
+import TabMiCartera from './tabs/TabMiCartera'
 import TabReportesCaja from './tabs/TabReportesCaja'
 import TabAjustes from './tabs/TabAjustes'
 
 const TABS = [
-  { id: 'cobranza', label: 'Cobranza', icon: '🗂️', Componente: TabCobranza },
   { id: 'comisionistas', label: 'Comisionistas', icon: '🧑‍💼', Componente: TabComisionistas },
   { id: 'solicitudes', label: 'Solicitudes', icon: '📝', Componente: TabSolicitudesCredito },
+  { id: 'clientes', label: 'Clientes', icon: '👥', Componente: TabCobranza },
+  { id: 'mi-cartera', label: 'Mi Cartera', icon: '🧑‍💻', Componente: TabMiCartera },
   { id: 'reportes', label: 'Reportes y Caja', icon: '📊', Componente: TabReportesCaja },
   { id: 'ajustes', label: 'Ajustes', icon: '⚙️', Componente: TabAjustes },
 ]
 
 export default function PanelMaestro() {
-  const [tabActiva, setTabActiva] = useState('cobranza')
+  const [tabActiva, setTabActiva] = useState('comisionistas')
 
   const tab = TABS.find((t) => t.id === tabActiva) ?? TABS[0]
   const Componente = tab.Componente

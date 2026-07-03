@@ -88,7 +88,10 @@ service cloud.firestore {
       allow get: if esMaestro() ||
         (esComisionista() && resource.data.comisionistaId == request.auth.uid);
       allow list: if esMaestro() || esComisionista();
-      allow create: if esComisionista() &&
+      // "Mi Cartera": el Maestro tambien puede registrar clientes
+      // propios y actuar como su propio comisionista (ver
+      // TabMiCartera.jsx), sin necesidad de pasar por aprobacion.
+      allow create: if (esComisionista() || esMaestro()) &&
         request.resource.data.comisionistaId == request.auth.uid;
       allow update: if esMaestro() ||
         (esComisionista() && resource.data.comisionistaId == request.auth.uid);
@@ -102,7 +105,9 @@ service cloud.firestore {
       allow get: if esMaestro() ||
         (esComisionista() && resource.data.comisionistaId == request.auth.uid);
       allow list: if esMaestro() || esComisionista();
-      allow create: if esComisionista() &&
+      // "Mi Cartera": el Maestro tambien puede registrar prestamos
+      // propios (autoAprobados, ver crearPrestamoConCronograma).
+      allow create: if (esComisionista() || esMaestro()) &&
         request.resource.data.comisionistaId == request.auth.uid;
       // El comisionista solo puede editar SU prestamo mientras sigue
       // "pendiente" — una vez aprobado o rechazado por el Maestro, las
@@ -143,7 +148,7 @@ service cloud.firestore {
         allow list: if esMaestro();
         allow list: if esComisionista() && resource.data.comisionistaId == request.auth.uid;
 
-        allow create: if esComisionista() &&
+        allow create: if (esComisionista() || esMaestro()) &&
           request.resource.data.comisionistaId == request.auth.uid;
         // El "|| prestamoPendiente(...)" es lo que permite regenerar el
         // cronograma al editar una solicitud pendiente (RegistroPrestamo.jsx
@@ -169,7 +174,7 @@ service cloud.firestore {
     match /codigos_yape_registrados/{codigo} {
       allow get: if esMaestro() || esComisionista();
       allow list: if esMaestro();
-      allow create: if esComisionista() &&
+      allow create: if (esComisionista() || esMaestro()) &&
         request.resource.data.comisionistaId == request.auth.uid;
       allow update: if false;
       // Solo el Maestro puede borrar (libera el codigo al rechazar una

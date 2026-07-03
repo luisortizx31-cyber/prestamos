@@ -78,6 +78,13 @@ export default function DetalleCliente() {
     )
   }
 
+  // Un comisionista SIEMPRE es dueño de los clientes que ve (las
+  // Security Rules ya se lo garantizan). El Maestro, en cambio, ve
+  // TODOS los clientes — pero solo debe tener los controles de
+  // "comisionista" (nuevo prestamo, editar, cobrar) en los que registro
+  // el mismo desde "Mi Cartera", no en los de otros comisionistas.
+  const esPropietario = cliente.comisionistaId === usuarioAuth?.uid
+
   const totalPrestado = prestamos.reduce((acc, p) => acc + (p.montoPrestado || 0), 0)
   const prestamoVigente = obtenerPrestamoVigente(prestamos)
   const prestamosOrdenados = [...prestamos].sort((a, b) => {
@@ -184,7 +191,7 @@ export default function DetalleCliente() {
         {/* Cabecera de préstamos */}
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-ink">Prestamos ({prestamos.length})</h2>
-          {!esMaestro && !prestamoVigente && (
+          {esPropietario && !prestamoVigente && (
             <Link
               to={`/clientes/${clienteId}/prestamos/nuevo`}
               className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white"
@@ -194,7 +201,7 @@ export default function DetalleCliente() {
           )}
         </div>
 
-        {!esMaestro && prestamoVigente && (
+        {esPropietario && prestamoVigente && (
           <p className="text-xs text-ink-soft -mt-2">
             {prestamoVigente.estadoSolicitud === ESTADO_SOLICITUD.PENDIENTE
               ? 'Tiene una solicitud pendiente de aprobacion. No se puede registrar otro prestamo.'
@@ -292,14 +299,15 @@ export default function DetalleCliente() {
                       prestamo={p}
                       comisionistaId={usuarioAuth?.uid}
                       esMaestro={esMaestro}
+                      esPropietario={esPropietario}
                       onCobrar={(cuota) => setCuotaActiva({ cuota, prestamoId: p.id })}
                     />
                   )}
                 </div>
 
-                {!esMaestro && (
+                {esPropietario && (
                   <>
-                    <BotonEditarPrestamo prestamo={p} clienteId={clienteId} />
+                    <BotonEditarPrestamo prestamo={p} clienteId={clienteId} esMaestro={esMaestro} />
                     <BotonOfrecerRenovacion prestamo={p} clienteId={clienteId} />
                   </>
                 )}
@@ -323,7 +331,7 @@ export default function DetalleCliente() {
 }
 
 // Cuotas en tiempo real dentro de la tarjeta del préstamo
-function CuotasInline({ prestamo, comisionistaId, esMaestro, onCobrar }) {
+function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCobrar }) {
   const [cuotas, setCuotas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
@@ -467,7 +475,7 @@ function CuotasInline({ prestamo, comisionistaId, esMaestro, onCobrar }) {
                   S/ {cuota.monto.toFixed(2)}
                 </span>
                 {esPendiente &&
-                  !esMaestro &&
+                  esPropietario &&
                   !prestamo.renovado &&
                   solicitudEstaAprobada(prestamo) && (
                     <button

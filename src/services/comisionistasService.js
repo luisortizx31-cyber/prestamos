@@ -62,6 +62,13 @@ export async function crearComisionista({ nombre, dni, pin, telefono, direccion 
       nombre,
       dni: dni.trim(),
       correoVirtual, // guardado solo como referencia/debug, no se usa en la UI
+      // Se guarda el PIN en texto plano para que el Maestro pueda
+      // consultarlo despues (Tab Ajustes) si el comisionista lo olvida.
+      // Firebase Auth NUNCA expone la contraseña ya guardada, asi que
+      // sin esto no habria forma de volver a verla. Ojo: esto significa
+      // que quien tenga acceso de Maestro puede ver (e impersonar) a
+      // cualquier comisionista - es un tradeoff aceptado a proposito.
+      pin: pin.trim(),
       telefono: telefono || null,
       direccion: direccion || null,
       role: ROLES.COLLECTOR,
