@@ -236,8 +236,8 @@ function Campo({ label, value, onChange, required = true }) {
   )
 }
 
-// capture="environment" abre directo la camara trasera en celulares,
-// pero igual permite elegir de la galeria si el navegador lo soporta.
+// Sin el atributo "capture": el navegador muestra el selector nativo
+// con opcion de camara O galeria, en vez de abrir la camara directo.
 function CampoFoto({ label, foto, cargando, onSeleccionar }) {
   return (
     <div>
@@ -253,7 +253,6 @@ function CampoFoto({ label, foto, cargando, onSeleccionar }) {
         <input
           type="file"
           accept="image/*"
-          capture="environment"
           className="hidden"
           onChange={(e) => onSeleccionar(e.target.files?.[0])}
         />
