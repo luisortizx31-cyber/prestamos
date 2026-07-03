@@ -7,6 +7,7 @@ import {
   query,
   where,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { ESTADO_CLIENTE } from '../models/prestamo'
@@ -60,6 +61,49 @@ export async function listarClientesPorComisionista(comisionistaId) {
  * @param {string} dni
  * @returns {Promise<object|null>} el cliente existente, o null si no hay
  */
+/**
+ * Pasa un cliente (y todos sus prestamos + cuotas) a otro comisionista
+ * (o al Maestro, usando su propio uid). Hay que actualizar
+ * comisionistaId en LAS TRES colecciones porque esta duplicado a
+ * proposito en prestamos y cuotas (ver comentarios en
+ * crearPrestamoConCronograma) — si solo se cambiara en /clientes, las
+ * Security Rules del comisionista original seguirian "reconociendo"
+ * como suyos los prestamos/cuotas viejos.
+ */
+export async function reasignarCliente(clienteId, nuevoComisionistaId) {
+  const batch = writeBatch(db)
+  batch.update(doc(db, 'clientes', clienteId), { comisionistaId: nuevoComisionistaId })
+
+  const prestamosSnap = await getDocs(
+    query(collection(db, 'prestamos'), where('clienteId', '==', clienteId))
+  )
+  for (const prestamoDoc of prestamosSnap.docs) {
+    batch.update(prestamoDoc.ref, { comisionistaId: nuevoComisionistaId })
+    const cuotasSnap = await getDocs(collection(prestamoDoc.ref, 'cuotas'))
+    cuotasSnap.docs.forEach((cuotaDoc) => {
+      batch.update(cuotaDoc.ref, { comisionistaId: nuevoComisionistaId })
+    })
+  }
+
+  await batch.commit()
+}
+
+/**
+ * Reasigna TODOS los clientes de un comisionista a otro de una sola vez
+ * — se usa al inhabilitar un comisionista (sus clientes pasan
+ * automaticamente al Maestro) y tambien esta disponible para mover
+ * varios clientes elegidos a mano.
+ *
+ * @returns {Promise<number>} cantidad de clientes reasignados
+ */
+export async function reasignarClientesDeComisionista(comisionistaOrigenId, nuevoComisionistaId) {
+  const clientes = await listarClientesPorComisionista(comisionistaOrigenId)
+  for (const cliente of clientes) {
+    await reasignarCliente(cliente.id, nuevoComisionistaId)
+  }
+  return clientes.length
+}
+
 export async function buscarClientePorDni(dni) {
   const q = query(collection(db, 'clientes'), where('dni', '==', dni.trim()))
   const snap = await getDocs(q)

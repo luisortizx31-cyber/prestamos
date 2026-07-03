@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { limpiarTodoElSistema } from '../../../services/resetService'
-import { listarComisionistas } from '../../../services/comisionistasService'
+import {
+  listarComisionistas,
+  inhabilitarComisionista,
+  habilitarComisionista,
+} from '../../../services/comisionistasService'
+import { reasignarClientesDeComisionista } from '../../../services/clientesService'
+import { useAuth } from '../../../context/AuthContext'
 
 const PALABRA_CONFIRMACION = 'BORRAR'
 
 export default function TabAjustes() {
+  const { usuarioAuth } = useAuth()
   const [palabra, setPalabra] = useState('')
   const [estado, setEstado] = useState('idle') // idle | cargando | ok | error
   const [error, setError] = useState(null)
@@ -12,23 +20,24 @@ export default function TabAjustes() {
   const [comisionistas, setComisionistas] = useState([])
   const [cargandoComisionistas, setCargandoComisionistas] = useState(true)
   const [errorComisionistas, setErrorComisionistas] = useState(null)
-  const [claveVisible, setClaveVisible] = useState(null) // uid del comisionista con la clave destapada
+  const [expandido, setExpandido] = useState(null) // uid del comisionista abierto (acordeon)
+
+  async function cargarComisionistas() {
+    setCargandoComisionistas(true)
+    setErrorComisionistas(null)
+    try {
+      const data = await listarComisionistas()
+      setComisionistas(data)
+    } catch (err) {
+      console.error('[TabAjustes] Error al listar comisionistas:', err)
+      setErrorComisionistas('No se pudieron cargar los comisionistas.')
+    } finally {
+      setCargandoComisionistas(false)
+    }
+  }
 
   useEffect(() => {
-    async function cargar() {
-      setCargandoComisionistas(true)
-      setErrorComisionistas(null)
-      try {
-        const data = await listarComisionistas()
-        setComisionistas(data)
-      } catch (err) {
-        console.error('[TabAjustes] Error al listar comisionistas:', err)
-        setErrorComisionistas('No se pudieron cargar los comisionistas.')
-      } finally {
-        setCargandoComisionistas(false)
-      }
-    }
-    cargar()
+    cargarComisionistas()
   }, [])
 
   async function handleLimpiar() {
@@ -55,14 +64,27 @@ export default function TabAjustes() {
         </p>
       </div>
 
-      {/* Datos completos de comisionistas, incluida su clave de acceso */}
+      {/* Mi cuenta */}
+      <div className="flex items-center justify-between rounded-2xl border border-line bg-surface p-5">
+        <div>
+          <h3 className="text-base font-semibold text-ink">Mi cuenta</h3>
+          <p className="mt-1 text-xs text-ink-soft">Cambia tu propio PIN de acceso.</p>
+        </div>
+        <Link
+          to="/cambiar-pin"
+          className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-soft"
+        >
+          Cambiar PIN
+        </Link>
+      </div>
+
+      {/* Comisionistas: acordeon, clave de acceso e inhabilitar */}
       <div className="rounded-2xl border border-line bg-surface p-5 space-y-4">
         <div>
           <h3 className="text-base font-semibold text-ink">Comisionistas registrados</h3>
           <p className="mt-1 text-xs text-ink-soft">
-            Datos completos de cada comisionista, incluida su clave (PIN) de
-            acceso — util si un comisionista la olvida. Toca "Ver clave"
-            para destaparla.
+            Toca un nombre para ver sus datos completos, su clave (PIN) de
+            acceso, o inhabilitarlo.
           </p>
         </div>
 
@@ -74,33 +96,18 @@ export default function TabAjustes() {
         )}
 
         {!cargandoComisionistas && !errorComisionistas && comisionistas.length > 0 && (
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {comisionistas.map((c) => {
               const uid = c.uid ?? c.id
-              const claveDestapada = claveVisible === uid
               return (
-                <li key={uid} className="rounded-xl border border-line bg-paper p-4 space-y-1.5 text-sm">
-                  <p className="font-semibold text-ink">{c.nombre}</p>
-                  <FilaDato label="DNI" valor={c.dni} />
-                  <FilaDato label="Telefono" valor={c.telefono || '—'} />
-                  <FilaDato label="Direccion" valor={c.direccion || '—'} />
-                  <div className="flex items-center justify-between">
-                    <span className="text-ink-soft">Clave (PIN)</span>
-                    <span className="flex items-center gap-2">
-                      <span className="font-mono font-medium text-ink">
-                        {claveDestapada ? (c.pin || '—') : '••••••'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setClaveVisible(claveDestapada ? null : uid)}
-                        className="rounded-lg border border-line px-2 py-0.5 text-xs text-ink-soft active:scale-95 transition-transform"
-                      >
-                        {claveDestapada ? 'Ocultar' : 'Ver clave'}
-                      </button>
-                    </span>
-                  </div>
-                  <FilaDato label="Activo" valor={c.activo === false ? 'No' : 'Si'} />
-                </li>
+                <FilaComisionista
+                  key={uid}
+                  comisionista={c}
+                  abierto={expandido === uid}
+                  onToggle={() => setExpandido((prev) => (prev === uid ? null : uid))}
+                  maestroUid={usuarioAuth?.uid}
+                  onCambio={cargarComisionistas}
+                />
               )
             })}
           </ul>
@@ -167,6 +174,170 @@ export default function TabAjustes() {
         )}
       </div>
     </div>
+  )
+}
+
+function FilaComisionista({ comisionista: c, abierto, onToggle, maestroUid, onCambio }) {
+  const uid = c.uid ?? c.id
+  const inhabilitado = c.activo === false
+
+  const [claveVisible, setClaveVisible] = useState(false)
+  const [mostrarFormInhabilitar, setMostrarFormInhabilitar] = useState(false)
+  const [motivo, setMotivo] = useState('')
+  const [procesando, setProcesando] = useState(false)
+  const [errorAccion, setErrorAccion] = useState(null)
+  const [resultado, setResultado] = useState(null)
+
+  async function handleInhabilitar() {
+    setProcesando(true)
+    setErrorAccion(null)
+    try {
+      await inhabilitarComisionista(uid, motivo)
+      const cantidad = await reasignarClientesDeComisionista(uid, maestroUid)
+      setResultado(
+        cantidad > 0
+          ? `Comisionista inhabilitado. ${cantidad} cliente${cantidad === 1 ? '' : 's'} pasaron a tu cuenta (Mi Cartera).`
+          : 'Comisionista inhabilitado.'
+      )
+      setMostrarFormInhabilitar(false)
+      setMotivo('')
+      onCambio()
+    } catch (err) {
+      console.error('[TabAjustes] Error al inhabilitar:', err)
+      setErrorAccion('No se pudo inhabilitar. Intenta de nuevo.')
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  async function handleHabilitar() {
+    setProcesando(true)
+    setErrorAccion(null)
+    try {
+      await habilitarComisionista(uid)
+      setResultado(null)
+      onCambio()
+    } catch (err) {
+      console.error('[TabAjustes] Error al habilitar:', err)
+      setErrorAccion('No se pudo habilitar. Intenta de nuevo.')
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  return (
+    <li className="rounded-xl border border-line bg-paper overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left"
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          <span className="font-medium text-ink truncate">{c.nombre}</span>
+          {inhabilitado && (
+            <span className="shrink-0 rounded-full bg-danger-soft px-2 py-0.5 text-xs font-medium text-danger">
+              Inhabilitado
+            </span>
+          )}
+        </span>
+        <span className={`shrink-0 text-ink-soft transition-transform ${abierto ? 'rotate-180' : ''}`}>
+          ⌄
+        </span>
+      </button>
+
+      {abierto && (
+        <div className="space-y-3 border-t border-line px-4 py-3 text-sm">
+          <FilaDato label="DNI" valor={c.dni} />
+          <FilaDato label="Telefono" valor={c.telefono || '—'} />
+          <FilaDato label="Direccion" valor={c.direccion || '—'} />
+
+          <div className="flex items-center justify-between">
+            <span className="text-ink-soft">Clave (PIN)</span>
+            <span className="flex items-center gap-2">
+              <span className="font-mono font-medium text-ink">
+                {claveVisible ? (c.pin || '—') : '••••••'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setClaveVisible((v) => !v)}
+                className="rounded-lg border border-line px-2 py-0.5 text-xs text-ink-soft active:scale-95 transition-transform"
+              >
+                {claveVisible ? 'Ocultar' : 'Ver clave'}
+              </button>
+            </span>
+          </div>
+
+          {inhabilitado && c.motivoInhabilitacion && (
+            <p className="rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger">
+              Motivo: {c.motivoInhabilitacion}
+            </p>
+          )}
+
+          {resultado && (
+            <p className="rounded-lg bg-success-soft px-3 py-2 text-xs text-success">{resultado}</p>
+          )}
+          {errorAccion && (
+            <p className="rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger">{errorAccion}</p>
+          )}
+
+          {inhabilitado ? (
+            <button
+              type="button"
+              onClick={handleHabilitar}
+              disabled={procesando}
+              className="w-full rounded-lg border border-success/40 bg-success-soft py-2 text-sm font-medium text-success disabled:opacity-50"
+            >
+              {procesando ? 'Habilitando…' : 'Habilitar de nuevo'}
+            </button>
+          ) : mostrarFormInhabilitar ? (
+            <div className="space-y-2 rounded-lg border border-danger/30 bg-danger-soft/40 p-3">
+              <label className="block text-xs font-medium text-ink">
+                Motivo (para que quede el registro)
+              </label>
+              <textarea
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                rows={2}
+                placeholder="Ej: dejo de trabajar con nosotros"
+                className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus-visible:border-danger"
+              />
+              <p className="text-xs text-ink-soft">
+                Ya no podra entrar a la app. Sus clientes pasaran automaticamente
+                a tu cuenta (los veras en la pestaña "Mi Cartera").
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMostrarFormInhabilitar(false)
+                    setMotivo('')
+                  }}
+                  className="flex-1 rounded-lg border border-line py-2 text-sm text-ink-soft"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleInhabilitar}
+                  disabled={procesando}
+                  className="flex-1 rounded-lg bg-danger py-2 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {procesando ? 'Inhabilitando…' : 'Confirmar'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setMostrarFormInhabilitar(true)}
+              className="w-full rounded-lg border border-danger/40 py-2 text-sm font-medium text-danger active:scale-[0.99] transition-transform"
+            >
+              Inhabilitar comisionista
+            </button>
+          )}
+        </div>
+      )}
+    </li>
   )
 }
 

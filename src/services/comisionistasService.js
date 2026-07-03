@@ -8,6 +8,7 @@ import {
   collection,
   doc,
   setDoc,
+  updateDoc,
   getDocs,
   query,
   where,
@@ -87,6 +88,28 @@ export async function listarComisionistas() {
   const q = query(collection(db, 'usuarios'), where('role', '==', ROLES.COLLECTOR))
   const snap = await getDocs(q)
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+/**
+ * Inhabilita a un comisionista: ya no puede ver ni tocar nada (el
+ * bloqueo real esta en las Security Rules via activoDe(), no aqui —
+ * esto solo escribe el campo). Guarda el motivo para que el Maestro se
+ * acuerde despues por que lo bloqueo.
+ */
+export async function inhabilitarComisionista(comisionistaId, motivo) {
+  await updateDoc(doc(db, 'usuarios', comisionistaId), {
+    activo: false,
+    motivoInhabilitacion: motivo?.trim() || null,
+    inhabilitadoEn: serverTimestamp(),
+  })
+}
+
+export async function habilitarComisionista(comisionistaId) {
+  await updateDoc(doc(db, 'usuarios', comisionistaId), {
+    activo: true,
+    motivoInhabilitacion: null,
+    inhabilitadoEn: null,
+  })
 }
 
 export async function buscarComisionistaPorDni(dni) {

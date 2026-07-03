@@ -18,8 +18,22 @@ service cloud.firestore {
       return estaAutenticado() && rolDe(request.auth.uid) == 'master';
     }
 
+    // INHABILITAR COMISIONISTA: si el Maestro lo inhabilita (activo:
+    // false), este helper debe cortarle el acceso de una, sin importar
+    // que su sesion de Firebase Auth siga tecnicamente vigente en el
+    // navegador. Por eso va DENTRO de esComisionista() y no solo en la
+    // UI (ver ProtectedRoute.jsx, que solo es una conveniencia visual).
+    // Igual que en creditoAprobado(), se chequea "in" antes de leer el
+    // campo para no romper la evaluacion en comisionistas viejos que
+    // todavia no tienen este campo.
+    function activoDe(uid) {
+      let datos = get(/databases/$(database)/documents/usuarios/$(uid)).data;
+      return !('activo' in datos) || datos.activo != false;
+    }
+
     function esComisionista() {
-      return estaAutenticado() && rolDe(request.auth.uid) == 'collector';
+      return estaAutenticado() && rolDe(request.auth.uid) == 'collector' &&
+        activoDe(request.auth.uid);
     }
 
     // SOLICITUDES DE CREDITO: el comisionista no puede registrar ningun

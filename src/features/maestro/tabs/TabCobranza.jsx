@@ -5,6 +5,8 @@ import { db } from '../../../config/firebase'
 import { EtiquetaEstadoCliente } from '../../shared/EtiquetaEstadoCliente'
 import { BotonExportarExcel } from '../../shared/BotonExportarExcel'
 import { ESTADO_CLIENTE_LABELS } from '../../../models/prestamo'
+import { useAuth } from '../../../context/AuthContext'
+import { reasignarCliente } from '../../../services/clientesService'
 
 function obtenerIniciales(nombre) {
   if (!nombre) return '?'
@@ -16,12 +18,21 @@ function obtenerIniciales(nombre) {
 }
 
 export default function TabCobranza() {
+  const { usuarioAuth } = useAuth()
   const [clientes, setClientes] = useState([])
   const [comisionistas, setComisionistas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState(null)
   const [busqueda, setBusqueda] = useState('')
   const [expandidos, setExpandidos] = useState(new Set())
+
+  // Reasignar clientes a mano: seleccion con checkbox + destino
+  // (otro comisionista o el propio Maestro).
+  const [seleccionados, setSeleccionados] = useState(new Set())
+  const [destino, setDestino] = useState('')
+  const [moviendo, setMoviendo] = useState(false)
+  const [errorMover, setErrorMover] = useState(null)
+  const [resultadoMover, setResultadoMover] = useState(null)
 
   async function cargar() {
     setCargando(true)
@@ -69,7 +80,10 @@ export default function TabCobranza() {
     })
     clientesFiltrados.forEach((cl) => {
       if (!mapa[cl.comisionistaId]) {
-        mapa[cl.comisionistaId] = { nombre: 'Comisionista', clientes: [] }
+        mapa[cl.comisionistaId] = {
+          nombre: cl.comisionistaId === usuarioAuth?.uid ? 'Tu cartera (Maestro)' : 'Comisionista',
+          clientes: [],
+        }
       }
       mapa[cl.comisionistaId].clientes.push(cl)
     })
@@ -78,7 +92,7 @@ export default function TabCobranza() {
     return Object.entries(mapa).filter(
       ([, grupo]) => !busqueda.trim() || grupo.clientes.length > 0
     )
-  }, [comisionistas, clientesFiltrados, busqueda])
+  }, [comisionistas, clientesFiltrados, busqueda, usuarioAuth])
 
   function toggleExpandido(comisionistaId) {
     setExpandidos((prev) => {
@@ -86,6 +100,40 @@ export default function TabCobranza() {
       next.has(comisionistaId) ? next.delete(comisionistaId) : next.add(comisionistaId)
       return next
     })
+  }
+
+  function toggleSeleccionado(clienteId) {
+    setSeleccionados((prev) => {
+      const next = new Set(prev)
+      next.has(clienteId) ? next.delete(clienteId) : next.add(clienteId)
+      return next
+    })
+    setResultadoMover(null)
+  }
+
+  async function handleMover() {
+    if (!destino || seleccionados.size === 0) return
+    setMoviendo(true)
+    setErrorMover(null)
+    try {
+      const destinoId = destino === 'MAESTRO' ? usuarioAuth.uid : destino
+      for (const clienteId of seleccionados) {
+        await reasignarCliente(clienteId, destinoId)
+      }
+      setResultadoMover(
+        `${seleccionados.size} cliente${seleccionados.size !== 1 ? 's' : ''} movido${
+          seleccionados.size !== 1 ? 's' : ''
+        }.`
+      )
+      setSeleccionados(new Set())
+      setDestino('')
+      await cargar()
+    } catch (err) {
+      console.error('[TabCobranza] Error al reasignar:', err)
+      setErrorMover('No se pudo mover a alguno de los clientes. Intenta de nuevo.')
+    } finally {
+      setMoviendo(false)
+    }
   }
 
   if (cargando) {
@@ -142,6 +190,49 @@ export default function TabCobranza() {
         />
       </div>
 
+      {/* Barra de reasignacion: aparece con al menos un cliente elegido */}
+      {seleccionados.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-brand/30 bg-brand-soft p-3">
+          <span className="text-sm font-medium text-ink">
+            {seleccionados.size} seleccionado{seleccionados.size !== 1 ? 's' : ''}
+          </span>
+          <select
+            value={destino}
+            onChange={(e) => setDestino(e.target.value)}
+            className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus-visible:border-brand"
+          >
+            <option value="">Mover a…</option>
+            <option value="MAESTRO">Yo (Maestro)</option>
+            {comisionistas
+              .filter((c) => c.activo !== false)
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+          </select>
+          <button
+            onClick={handleMover}
+            disabled={!destino || moviendo}
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {moviendo ? 'Moviendo…' : 'Mover'}
+          </button>
+          <button
+            onClick={() => {
+              setSeleccionados(new Set())
+              setDestino('')
+            }}
+            className="rounded-lg border border-line px-3 py-2 text-sm text-ink-soft"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
+      {errorMover && <p className="mb-3 text-sm text-danger">{errorMover}</p>}
+      {resultadoMover && <p className="mb-3 text-sm text-success">{resultadoMover}</p>}
+
       {grupos.length === 0 && (
         <div className="rounded-2xl border border-dashed border-line p-8 text-center text-ink-soft">
           {busqueda
@@ -192,20 +283,30 @@ export default function TabCobranza() {
                   )}
                   {grupo.clientes.map((cl) => (
                     <li key={cl.id}>
-                      {/* Indentado y con icono de persona: marca visual
-                          de que esto es un cliente colgando del
-                          comisionista de arriba, no otro comisionista. */}
-                      <Link
-                        to={`/clientes/${cl.id}`}
-                        className="flex items-center gap-3 py-3 pl-9 pr-4 active:bg-line/40 transition-colors"
-                      >
-                        <span className="shrink-0 text-ink-soft/60">👤</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-ink truncate">{cl.nombre}</p>
-                          <p className="text-xs text-ink-soft">DNI {cl.dni}</p>
-                        </div>
-                        <EtiquetaEstadoCliente estado={cl.estado} />
-                      </Link>
+                      {/* Checkbox fuera del Link a proposito: un <a> no
+                          debe contener otro control interactivo que
+                          intercepte el click sin pelear con la
+                          navegacion (mismo patron que en otras tabs). */}
+                      <div className="flex items-center gap-2 py-2.5 pl-5 pr-4">
+                        <input
+                          type="checkbox"
+                          checked={seleccionados.has(cl.id)}
+                          onChange={() => toggleSeleccionado(cl.id)}
+                          aria-label={`Seleccionar a ${cl.nombre}`}
+                          className="h-4 w-4 shrink-0 accent-brand"
+                        />
+                        <Link
+                          to={`/clientes/${cl.id}`}
+                          className="flex flex-1 min-w-0 items-center gap-3 py-0.5 pl-2 active:opacity-70 transition-opacity"
+                        >
+                          <span className="shrink-0 text-ink-soft/60">👤</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-ink truncate">{cl.nombre}</p>
+                            <p className="text-xs text-ink-soft">DNI {cl.dni}</p>
+                          </div>
+                          <EtiquetaEstadoCliente estado={cl.estado} />
+                        </Link>
+                      </div>
                     </li>
                   ))}
                 </ul>
