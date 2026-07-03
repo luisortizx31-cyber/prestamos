@@ -201,5 +201,24 @@ service cloud.firestore {
       // nunca puede borrar registros anti-fraude.
       allow delete: if esMaestro();
     }
+
+    // ---------------------------------------------------------------
+    // /recalendarizaciones - historial de pagos "solo interes"
+    // (ver recalendarizacionService.js). Se aplican de inmediato, sin
+    // pasar por Conciliacion de Caja, asi que no requieren un helper
+    // especial como creditoAprobado()/prestamoPendiente().
+    // ---------------------------------------------------------------
+    match /recalendarizaciones/{id} {
+      allow get: if esMaestro() ||
+        (esComisionista() && resource.data.comisionistaId == request.auth.uid);
+      allow list: if esMaestro() || esComisionista();
+      // Igual que codigos_yape_registrados: el Maestro puede registrar
+      // esto a nombre del comisionista dueño del cliente, no solo del
+      // suyo propio (ver ConfirmarClaveMaestro.jsx).
+      allow create: if (esComisionista() && request.resource.data.comisionistaId == request.auth.uid) ||
+        esMaestro();
+      allow update: if false;
+      allow delete: if esMaestro();
+    }
   }
 }

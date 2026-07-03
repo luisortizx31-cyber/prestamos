@@ -36,13 +36,15 @@ export default function TabReportesCaja() {
     setCargando(true)
     setErrorCarga(null)
     try {
-      const [prestamos, snapCuotasPagadas, snapComisionistas] = await Promise.all([
+      const [prestamos, snapCuotasPagadas, snapComisionistas, snapRecalendarizaciones] = await Promise.all([
         listarTodosLosPrestamos(),
         getDocs(query(collectionGroup(db, 'cuotas'), where('estado', '==', ESTADO_CUOTA.PAGADO))),
         getDocs(query(collection(db, 'usuarios'), where('role', '==', 'collector'))),
+        getDocs(collection(db, 'recalendarizaciones')),
       ])
 
       const cuotasPagadas = snapCuotasPagadas.docs.map((d) => d.data())
+      const recalendarizaciones = snapRecalendarizaciones.docs.map((d) => d.data())
       const nombresComisionista = {}
       snapComisionistas.docs.forEach((d) => {
         nombresComisionista[d.id] = d.data().nombre
@@ -65,12 +67,23 @@ export default function TabReportesCaja() {
       const montoTotalAPagar = prestamos.reduce((acc, p) => acc + (p.montoTotalAPagar || 0), 0)
       const totalPendienteCobro = Math.max(montoTotalAPagar - totalCobrado, 0)
 
+      // "Solo interes" (recalendarizaciones): no cuenta como cuota
+      // pagada (el capital no se mueve), asi que se muestra aparte —
+      // mezclarlo con totalCobrado haria parecer que se recupero mas
+      // capital del que realmente se recupero.
+      const totalInteresRecalendarizado = recalendarizaciones.reduce(
+        (acc, r) => acc + (r.montoInteresPagado || 0), 0
+      )
+
       // Totales de hoy
       const inicioHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
       const prestadoHoy = sumarEnRango(prestamos, 'creadoEn', inicioHoy, null, 'montoPrestado')
       const cobradoHoy = sumarEnRango(cuotasPagadas, 'fechaAprobacion', inicioHoy, null, 'monto')
       const prestamosHoy = contarEnRango(prestamos, 'creadoEn', inicioHoy, null)
       const cuotasHoy = contarEnRango(cuotasPagadas, 'fechaAprobacion', inicioHoy, null)
+      const interesRecalendarizadoHoy = sumarEnRango(
+        recalendarizaciones, 'creadoEn', inicioHoy, null, 'montoInteresPagado'
+      )
 
       setResumen({
         totalPrestado, totalSeguro, totalCobrado,
@@ -78,6 +91,7 @@ export default function TabReportesCaja() {
         totalPendienteCobro, totalCuotasEsperadas,
         totalCuotasPagadasCount, cantidadPrestamos: prestamos.length,
         prestadoHoy, cobradoHoy, prestamosHoy, cuotasHoy,
+        totalInteresRecalendarizado, interesRecalendarizadoHoy,
       })
 
       // Comisiones por comisionista, agrupadas por corte Y por el mes/año
@@ -294,6 +308,17 @@ export default function TabReportesCaja() {
                 bg="bg-success-soft border-success/20"
               />
             </div>
+            {resumen.interesRecalendarizadoHoy > 0 && (
+              <div className="mt-3">
+                <Tarjeta
+                  label="Interes cobrado (recalendarizaciones)"
+                  valor={resumen.interesRecalendarizadoHoy}
+                  sub="Solo interes — el capital no se movio"
+                  color="text-gold"
+                  bg="bg-gold-soft border-gold/20"
+                />
+              </div>
+            )}
           </section>
 
           {/* SELECTOR DE MES */}
@@ -340,6 +365,12 @@ export default function TabReportesCaja() {
               <Tarjeta label="Total cobrado" valor={resumen.totalCobrado} color="text-success" bg="bg-success-soft border-success/20" />
               <Tarjeta label="Pendiente de cobro" valor={resumen.totalPendienteCobro} color="text-warning" bg="bg-warning-soft border-warning/20" />
               <Tarjeta label="Seguro acumulado" valor={resumen.totalSeguro} color="text-gold" bg="bg-gold-soft border-gold/20" />
+              <Tarjeta
+                label="Interes por recalendarizaciones"
+                valor={resumen.totalInteresRecalendarizado}
+                color="text-gold"
+                bg="bg-gold-soft border-gold/20"
+              />
             </div>
           </section>
 

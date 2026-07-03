@@ -8,10 +8,12 @@ import { EtiquetaEstadoCliente } from '../shared/EtiquetaEstadoCliente'
 import { BotonOfrecerRenovacion } from '../shared/BotonOfrecerRenovacion'
 import { BotonEditarPrestamo } from '../shared/BotonEditarPrestamo'
 import { ModalCobro } from '../shared/ModalCobro'
+import { ModalRecalendarizar } from '../shared/ModalRecalendarizar'
 import { ConfirmarClaveMaestro } from '../shared/ConfirmarClaveMaestro'
 import { useAuth } from '../../context/AuthContext'
 import { useRole } from '../../hooks/useRole'
 import {
+  TIPO_CUOTA,
   TIPO_CUOTA_LABELS,
   ESTADO_SOLICITUD,
   ESTADO_CUOTA,
@@ -31,10 +33,11 @@ export default function DetalleCliente() {
   const [cargando, setCargando] = useState(true)
   const [prestamoExpandido, setPrestamoExpandido] = useState(null)
   const [cuotaActiva, setCuotaActiva] = useState(null) // { cuota, prestamoId }
-  // Cuando el Maestro cobra en un cliente que no es suyo, primero se le
-  // pide reconfirmar su PIN (ver ConfirmarClaveMaestro.jsx) — esto
-  // guarda la cuota en espera mientras tanto.
-  const [confirmacionPendiente, setConfirmacionPendiente] = useState(null) // { cuota, prestamoId }
+  const [recalendarizacionActiva, setRecalendarizacionActiva] = useState(null) // { cuota, prestamoId }
+  // Cuando el Maestro cobra o recalendariza en un cliente que no es
+  // suyo, primero se le pide reconfirmar su PIN (ver
+  // ConfirmarClaveMaestro.jsx) — esto guarda la accion en espera.
+  const [confirmacionPendiente, setConfirmacionPendiente] = useState(null) // { accion, cuota, prestamoId }
   // Las fotos del DNI no se cargan hasta que el usuario las pide -
   // evita gastar ancho de banda/lecturas de Storage en cada visita.
   const [verFotosDni, setVerFotosDni] = useState(false)
@@ -90,14 +93,16 @@ export default function DetalleCliente() {
   // el mismo desde "Mi Cartera", no en los de otros comisionistas.
   const esPropietario = cliente.comisionistaId === usuarioAuth?.uid
 
-  // El Maestro puede cobrar cuotas de CUALQUIER cliente (no solo los
-  // suyos), pero si el cliente no es suyo primero debe reconfirmar su
-  // PIN (ver ConfirmarClaveMaestro.jsx) antes de abrir el ModalCobro.
-  function handleCobrar(cuota, prestamoId) {
+  // El Maestro puede cobrar o recalendarizar cuotas de CUALQUIER
+  // cliente (no solo los suyos), pero si el cliente no es suyo primero
+  // debe reconfirmar su PIN (ver ConfirmarClaveMaestro.jsx) antes de
+  // abrir el modal correspondiente.
+  function handleAccionCuota(accion, cuota, prestamoId) {
     if (esPropietario) {
-      setCuotaActiva({ cuota, prestamoId })
+      if (accion === 'cobrar') setCuotaActiva({ cuota, prestamoId })
+      else setRecalendarizacionActiva({ cuota, prestamoId })
     } else {
-      setConfirmacionPendiente({ cuota, prestamoId })
+      setConfirmacionPendiente({ accion, cuota, prestamoId })
     }
   }
 
@@ -316,7 +321,8 @@ export default function DetalleCliente() {
                       comisionistaId={usuarioAuth?.uid}
                       esMaestro={esMaestro}
                       esPropietario={esPropietario}
-                      onCobrar={(cuota) => handleCobrar(cuota, p.id)}
+                      onCobrar={(cuota) => handleAccionCuota('cobrar', cuota, p.id)}
+                      onRecalendarizar={(cuota) => handleAccionCuota('recalendarizar', cuota, p.id)}
                     />
                   )}
                 </div>
@@ -348,10 +354,24 @@ export default function DetalleCliente() {
         />
       )}
 
+      {recalendarizacionActiva && (
+        <ModalRecalendarizar
+          prestamo={prestamos.find((p) => p.id === recalendarizacionActiva.prestamoId)}
+          prestamoId={recalendarizacionActiva.prestamoId}
+          comisionistaId={cliente.comisionistaId}
+          clienteId={clienteId}
+          onCerrar={() => setRecalendarizacionActiva(null)}
+        />
+      )}
+
       {confirmacionPendiente && (
         <ConfirmarClaveMaestro
           onConfirmar={() => {
-            setCuotaActiva(confirmacionPendiente)
+            if (confirmacionPendiente.accion === 'cobrar') {
+              setCuotaActiva(confirmacionPendiente)
+            } else {
+              setRecalendarizacionActiva(confirmacionPendiente)
+            }
             setConfirmacionPendiente(null)
           }}
           onCancelar={() => setConfirmacionPendiente(null)}
@@ -362,7 +382,7 @@ export default function DetalleCliente() {
 }
 
 // Cuotas en tiempo real dentro de la tarjeta del préstamo
-function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCobrar }) {
+function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCobrar, onRecalendarizar }) {
   const [cuotas, setCuotas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
@@ -435,10 +455,19 @@ function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCo
       )}
 
       <ul className="space-y-1.5 p-4 pt-3">
-        {cuotas.map((cuota) => {
+        {(() => {
+          // Solo tiene sentido recalendarizar la cuota pendiente mas
+          // antigua (la "actual") — y solo si el tipo de cuota admite
+          // correrse un periodo (no aplica a fecha_especifica, que es
+          // pago unico).
+          const primeraPendiente = cuotas.find((c) => c.estado === ESTADO_CUOTA.PENDIENTE)
+          const admiteRecalendarizar = prestamo.tipoCuota !== TIPO_CUOTA.FECHA_ESPECIFICA
+
+          return cuotas.map((cuota) => {
           const pagada = cuota.estado === ESTADO_CUOTA.PAGADO
           const porVerificar = cuota.estado === ESTADO_CUOTA.POR_VERIFICAR
           const esPendiente = cuota.estado === ESTADO_CUOTA.PENDIENTE
+          const esLaActual = esPendiente && primeraPendiente?.id === cuota.id
           const fechaVenc = cuota.fechaVencimiento?.toDate
             ? cuota.fechaVencimiento.toDate()
             : new Date(cuota.fechaVencimiento)
@@ -486,6 +515,9 @@ function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCo
                     {formatFecha(fechaVenc)}
                     {vencida && <span className="ml-1 font-bold">· VENCIDA</span>}
                     {porVerificar && <span className="ml-1">· EN REVISION</span>}
+                    {cuota.recalendarizada && (
+                      <span className="ml-1 text-ink-soft">· ↻ PUESTA AL DIA</span>
+                    )}
                   </p>
                   {(pagada || porVerificar) &&
                     cuota.metodoPago === METODO_PAGO.YAPE &&
@@ -518,10 +550,24 @@ function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCo
                       Cobrar
                     </button>
                   )}
+                {esLaActual &&
+                  admiteRecalendarizar &&
+                  (esPropietario || esMaestro) &&
+                  !prestamo.renovado &&
+                  solicitudEstaAprobada(prestamo) && (
+                    <button
+                      onClick={() => onRecalendarizar(cuota)}
+                      title="El cliente paga solo el interes y todas las cuotas pendientes se corren un periodo"
+                      className="rounded-lg border border-gold/40 bg-gold-soft px-2.5 py-1.5 text-xs font-semibold text-gold active:scale-95 transition-transform"
+                    >
+                      ↻
+                    </button>
+                  )}
               </div>
             </li>
           )
-        })}
+          })
+        })()}
       </ul>
     </div>
   )
