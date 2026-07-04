@@ -1,5 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { collection, collectionGroup, query, where, getDocs } from 'firebase/firestore'
+import { db } from '../../config/firebase'
 import { logout } from '../../services/authService'
+import { ESTADO_SOLICITUD, ESTADO_CUOTA } from '../../models/prestamo'
 import TabCobranza from './tabs/TabCobranza'
 import TabComisionistas from './tabs/TabComisionistas'
 import TabSolicitudesCredito from './tabs/TabSolicitudesCredito'
@@ -18,6 +22,40 @@ const TABS = [
 
 export default function PanelMaestro() {
   const [tabActiva, setTabActiva] = useState('comisionistas')
+  const [pendientes, setPendientes] = useState({ solicitudes: 0, cobros: 0, recalendarizaciones: 0 })
+
+  // Se calcula una vez al entrar al panel — mismo patron que el resto
+  // de las tabs (sin listener en tiempo real), asi que si algo cambia
+  // mientras el Maestro esta adentro, se actualiza recien la proxima
+  // vez que entre o recargue.
+  useEffect(() => {
+    async function cargarPendientes() {
+      try {
+        const [snapSolicitudes, snapCobros, snapRecal] = await Promise.all([
+          getDocs(
+            query(collection(db, 'prestamos'), where('estadoSolicitud', '==', ESTADO_SOLICITUD.PENDIENTE))
+          ),
+          getDocs(
+            query(collectionGroup(db, 'cuotas'), where('estado', '==', ESTADO_CUOTA.POR_VERIFICAR))
+          ),
+          getDocs(
+            query(collection(db, 'recalendarizaciones'), where('estado', '==', ESTADO_SOLICITUD.PENDIENTE))
+          ),
+        ])
+        setPendientes({
+          solicitudes: snapSolicitudes.size,
+          cobros: snapCobros.size,
+          recalendarizaciones: snapRecal.size,
+        })
+      } catch (err) {
+        console.error('[PanelMaestro] Error al cargar pendientes:', err)
+      }
+    }
+    cargarPendientes()
+  }, [])
+
+  const totalPendientes =
+    pendientes.solicitudes + pendientes.cobros + pendientes.recalendarizaciones
 
   const tab = TABS.find((t) => t.id === tabActiva) ?? TABS[0]
   const Componente = tab.Componente
@@ -38,6 +76,49 @@ export default function PanelMaestro() {
           Salir
         </button>
       </header>
+
+      {totalPendientes > 0 && (
+        <div className="flex flex-wrap items-center gap-3 border-b border-gold/30 bg-gold-soft px-4 py-3">
+          {/* Puntito parpadeante — llama la atencion sin abrir cada pestaña */}
+          <span className="relative flex h-2.5 w-2.5 shrink-0">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-danger opacity-75" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-danger" />
+          </span>
+
+          <p className="flex-1 min-w-[12rem] text-sm text-gold">
+            <span className="font-semibold">Tenes cosas por aprobar: </span>
+            {[
+              pendientes.solicitudes > 0 &&
+                `${pendientes.solicitudes} solicitud${pendientes.solicitudes !== 1 ? 'es' : ''} de prestamo`,
+              pendientes.cobros > 0 &&
+                `${pendientes.cobros} cobro${pendientes.cobros !== 1 ? 's' : ''} por verificar`,
+              pendientes.recalendarizaciones > 0 &&
+                `${pendientes.recalendarizaciones} recalendarizacion${pendientes.recalendarizaciones !== 1 ? 'es' : ''}`,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+
+          <div className="flex shrink-0 gap-2">
+            {pendientes.solicitudes > 0 && (
+              <button
+                onClick={() => setTabActiva('solicitudes')}
+                className="rounded-lg bg-gold px-3 py-1.5 text-xs font-semibold text-white active:scale-95 transition-transform"
+              >
+                Ver solicitudes
+              </button>
+            )}
+            {(pendientes.cobros > 0 || pendientes.recalendarizaciones > 0) && (
+              <Link
+                to="/conciliacion"
+                className="rounded-lg bg-gold px-3 py-1.5 text-xs font-semibold text-white active:scale-95 transition-transform"
+              >
+                Ver caja
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Tabs - estado local, sin router, como pidio el cliente */}
       <nav className="flex border-b border-line bg-surface overflow-x-auto">
