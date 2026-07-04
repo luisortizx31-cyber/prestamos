@@ -25,13 +25,15 @@ export function debeOfrecerRenovacion(prestamo) {
   return vigenteYNoRenovado(prestamo) && cuotasPagadas >= CUOTAS_PAGADAS_PARA_RENOVACION
 }
 
+// Regla de negocio: un cliente puede tener hasta DOS prestamos
+// "vigentes" a la vez (pendientes de aprobacion, o aprobados y sin
+// terminar de pagar). Al llegar a este maximo, no se puede registrar
+// un tercer prestamo nuevo e independiente — solo se puede renovar
+// alguno de los que ya tiene (y unicamente despues de pagar la primera
+// cuota, ver debeOfrecerRenovacion()) o recalendarizarlo.
+export const MAX_PRESTAMOS_VIGENTES = 2
+
 /**
- * Regla de negocio: un cliente solo puede tener UN prestamo "vigente" a
- * la vez (pendiente de aprobacion, o aprobado y sin terminar de pagar).
- * Mientras exista uno, no se puede registrar otro prestamo nuevo e
- * independiente — solo se puede renovar el vigente (y unicamente
- * despues de pagar la primera cuota, ver debeOfrecerRenovacion()).
- *
  * Un prestamo deja de ser vigente cuando: lo rechazo el Maestro, ya se
  * pago por completo, o ya fue renovado (su deuda se traspaso a otro).
  *
@@ -46,9 +48,9 @@ export function esPrestamoVigente(prestamo) {
 
 /**
  * @param {object[]} prestamos  lista de prestamos de un mismo cliente
- * @returns {object|null} el prestamo vigente (deberia haber a lo sumo
- *                          uno solo si la regla se respeta), o null
+ * @returns {object[]} todos los prestamos vigentes (deberian ser a lo
+ *                       sumo MAX_PRESTAMOS_VIGENTES si la regla se respeta)
  */
-export function obtenerPrestamoVigente(prestamos) {
-  return prestamos?.find(esPrestamoVigente) || null
+export function obtenerPrestamosVigentes(prestamos) {
+  return prestamos?.filter(esPrestamoVigente) || []
 }

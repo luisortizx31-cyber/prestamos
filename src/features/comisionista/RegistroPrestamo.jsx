@@ -11,7 +11,11 @@ import {
 } from '../../services/prestamosService'
 import { listarCuotasDePrestamo } from '../../services/cuotasService'
 import { calcularMontos, generarCronograma, descripcionSeguro } from '../../utils/calcularCronograma'
-import { debeOfrecerRenovacion, obtenerPrestamoVigente } from '../../utils/renovacion'
+import {
+  debeOfrecerRenovacion,
+  obtenerPrestamosVigentes,
+  MAX_PRESTAMOS_VIGENTES,
+} from '../../utils/renovacion'
 import { TIPO_CUOTA, TIPO_CUOTA_LABELS, ESTADO_CUOTA, ESTADO_SOLICITUD } from '../../models/prestamo'
 
 const HOY = new Date().toISOString().split('T')[0]
@@ -114,9 +118,15 @@ export default function RegistroPrestamo() {
         } else {
           const prestamos = await listarPrestamosPorCliente(clienteId)
           if (!activo) return
-          const vigente = obtenerPrestamoVigente(prestamos)
-          if (vigente) {
-            setBloqueo({ motivo: 'ya_tiene_activo', prestamo: vigente })
+          const vigentes = obtenerPrestamosVigentes(prestamos)
+          // Mientras haya una solicitud pendiente de aprobacion, no se
+          // puede registrar otra encima (sin importar cuantas vigentes
+          // tenga en total).
+          const pendiente = vigentes.find((p) => p.estadoSolicitud === ESTADO_SOLICITUD.PENDIENTE)
+          if (pendiente) {
+            setBloqueo({ motivo: 'tiene_pendiente', prestamos: vigentes })
+          } else if (vigentes.length >= MAX_PRESTAMOS_VIGENTES) {
+            setBloqueo({ motivo: 'ya_tiene_activo', prestamos: vigentes })
           }
         }
       } catch (err) {
@@ -531,28 +541,39 @@ export default function RegistroPrestamo() {
 }
 
 function PantallaBloqueo({ bloqueo, clienteId, onVolver }) {
-  const { motivo, prestamo } = bloqueo
+  const { motivo, prestamos } = bloqueo
 
   let titulo = 'No se puede registrar este prestamo'
   let detalle = 'Ocurrio un error al validar. Intenta de nuevo.'
   let accion = null
 
-  if (motivo === 'ya_tiene_activo') {
-    titulo = 'Este cliente ya tiene un prestamo activo'
+  if (motivo === 'tiene_pendiente') {
+    titulo = 'Este cliente tiene una solicitud pendiente'
     detalle =
-      'Solo se puede tener un prestamo a la vez. Para prestarle mas dinero, ' +
-      'hay que renovar el prestamo que ya tiene, no crear uno nuevo aparte.'
-    if (debeOfrecerRenovacion(prestamo)) {
+      'Ya tiene un prestamo esperando aprobacion del administrador. No se ' +
+      'puede registrar otro hasta que esa solicitud se apruebe o se rechace.'
+  } else if (motivo === 'ya_tiene_activo') {
+    titulo = `Este cliente ya tiene ${prestamos.length} prestamos activos`
+    detalle =
+      `Como maximo puede tener ${MAX_PRESTAMOS_VIGENTES} prestamos a la vez. ` +
+      'Para prestarle mas, hay que renovar alguno de los que ya tiene, no crear uno nuevo aparte.'
+    const renovables = prestamos.filter(debeOfrecerRenovacion)
+    if (renovables.length > 0) {
       accion = (
-        <Link
-          to={`/clientes/${clienteId}/prestamos/nuevo?renovarDe=${prestamo.id}`}
-          className="rounded-xl bg-gold px-5 py-2.5 text-sm font-semibold text-white"
-        >
-          ⭐ Renovar ese prestamo
-        </Link>
+        <div className="flex flex-col gap-2">
+          {renovables.map((p) => (
+            <Link
+              key={p.id}
+              to={`/clientes/${clienteId}/prestamos/nuevo?renovarDe=${p.id}`}
+              className="rounded-xl bg-gold px-5 py-2.5 text-sm font-semibold text-white"
+            >
+              ⭐ Renovar S/ {(p.montoPrestado || 0).toFixed(2)}
+            </Link>
+          ))}
+        </div>
       )
     } else {
-      detalle += ' Podra renovarlo recien cuando pague (y se confirme) la primera cuota.'
+      detalle += ' Podra renovar alguno recien cuando pague (y se confirme) su primera cuota.'
     }
   } else if (motivo === 'renovacion_invalida') {
     titulo = 'Esta renovacion ya no es valida'

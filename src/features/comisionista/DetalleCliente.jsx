@@ -20,7 +20,11 @@ import {
   METODO_PAGO,
   solicitudEstaAprobada,
 } from '../../models/prestamo'
-import { debeOfrecerRenovacion, obtenerPrestamoVigente } from '../../utils/renovacion'
+import {
+  debeOfrecerRenovacion,
+  obtenerPrestamosVigentes,
+  MAX_PRESTAMOS_VIGENTES,
+} from '../../utils/renovacion'
 import { construirLinkWhatsapp } from '../../utils/whatsapp'
 
 export default function DetalleCliente() {
@@ -70,9 +74,11 @@ export default function DetalleCliente() {
     cargar()
   }, [clienteId, esMaestro, usuarioAuth])
 
-  // Auto-expande el préstamo activo cuando carga la data
+  // Auto-expande un préstamo vigente cuando carga la data (si hay dos,
+  // alcanza con abrir el primero — el comisionista puede desplegar el
+  // otro a mano).
   useEffect(() => {
-    const vigente = obtenerPrestamoVigente(prestamos)
+    const [vigente] = obtenerPrestamosVigentes(prestamos)
     if (vigente) setPrestamoExpandido(vigente.id)
   }, [prestamos])
 
@@ -107,7 +113,15 @@ export default function DetalleCliente() {
   }
 
   const totalPrestado = prestamos.reduce((acc, p) => acc + (p.montoPrestado || 0), 0)
-  const prestamoVigente = obtenerPrestamoVigente(prestamos)
+  // Regla de negocio: hasta MAX_PRESTAMOS_VIGENTES (2) prestamos
+  // vigentes a la vez. Al llegar al maximo, o mientras haya uno
+  // pendiente de aprobacion, no se puede registrar uno nuevo e
+  // independiente — solo renovar o recalendarizar los que ya tiene.
+  const prestamosVigentes = obtenerPrestamosVigentes(prestamos)
+  const tienePendiente = prestamosVigentes.some(
+    (p) => p.estadoSolicitud === ESTADO_SOLICITUD.PENDIENTE
+  )
+  const puedeAgregarNuevo = !tienePendiente && prestamosVigentes.length < MAX_PRESTAMOS_VIGENTES
   const prestamosOrdenados = [...prestamos].sort((a, b) => {
     const fa = a.creadoEn?.toDate ? a.creadoEn.toDate() : new Date(a.creadoEn || 0)
     const fb = b.creadoEn?.toDate ? b.creadoEn.toDate() : new Date(b.creadoEn || 0)
@@ -212,7 +226,7 @@ export default function DetalleCliente() {
         {/* Cabecera de préstamos */}
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-ink">Prestamos ({prestamos.length})</h2>
-          {esPropietario && !prestamoVigente && (
+          {esPropietario && puedeAgregarNuevo && (
             <Link
               to={`/clientes/${clienteId}/prestamos/nuevo`}
               className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white"
@@ -222,13 +236,15 @@ export default function DetalleCliente() {
           )}
         </div>
 
-        {esPropietario && prestamoVigente && (
+        {esPropietario && prestamosVigentes.length > 0 && (
           <p className="text-xs text-ink-soft -mt-2">
-            {prestamoVigente.estadoSolicitud === ESTADO_SOLICITUD.PENDIENTE
+            {tienePendiente
               ? 'Tiene una solicitud pendiente de aprobacion. No se puede registrar otro prestamo.'
-              : debeOfrecerRenovacion(prestamoVigente)
-              ? 'Ya tiene un prestamo activo: solo puede renovarlo (ver abajo).'
-              : 'Ya tiene un prestamo activo. Podra renovarlo cuando pague la primera cuota.'}
+              : prestamosVigentes.length >= MAX_PRESTAMOS_VIGENTES
+              ? `Ya tiene ${MAX_PRESTAMOS_VIGENTES} prestamos activos (el maximo). Solo puede renovar o recalendarizar los que ya tiene.`
+              : prestamosVigentes.some(debeOfrecerRenovacion)
+              ? 'Ya tiene un prestamo activo. Puede registrar otro nuevo, o renovar el actual (ver abajo).'
+              : 'Ya tiene un prestamo activo. Puede registrar otro nuevo, o renovarlo cuando pague la primera cuota.'}
           </p>
         )}
 
