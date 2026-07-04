@@ -4,6 +4,7 @@ import { listarClientesPorComisionista } from '../../../services/clientesService
 import { useAuth } from '../../../context/AuthContext'
 import { EtiquetaEstadoCliente } from '../../shared/EtiquetaEstadoCliente'
 import { construirLinkWhatsapp } from '../../../utils/whatsapp'
+import { ESTADO_CLIENTE_STYLES } from '../../../models/prestamo'
 
 /**
  * El Maestro puede actuar como su propio comisionista: registrar
@@ -91,7 +92,9 @@ export default function TabMiCartera() {
           <li key={c.id} className="flex items-center gap-2">
             <Link
               to={`/clientes/${c.id}`}
-              className="flex flex-1 min-w-0 items-center justify-between rounded-2xl border border-line bg-surface p-4 active:bg-paper transition-colors"
+              className={`flex flex-1 min-w-0 items-center justify-between rounded-2xl border border-line border-l-4 p-4 active:bg-paper transition-colors ${
+                ESTADO_CLIENTE_STYLES[c.estado]?.border || ''
+              } ${ESTADO_CLIENTE_STYLES[c.estado]?.bg || 'bg-surface'}`}
             >
               <div className="min-w-0">
                 <p className="font-medium text-ink truncate">{c.nombre}</p>

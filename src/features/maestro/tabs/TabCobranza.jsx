@@ -4,7 +4,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from '../../../config/firebase'
 import { EtiquetaEstadoCliente } from '../../shared/EtiquetaEstadoCliente'
 import { BotonExportarExcel } from '../../shared/BotonExportarExcel'
-import { ESTADO_CLIENTE_LABELS } from '../../../models/prestamo'
+import { ESTADO_CLIENTE_LABELS, ESTADO_CLIENTE_STYLES } from '../../../models/prestamo'
 import { useAuth } from '../../../context/AuthContext'
 import { reasignarCliente } from '../../../services/clientesService'
 import { construirLinkWhatsapp } from '../../../utils/whatsapp'
@@ -288,7 +288,11 @@ export default function TabCobranza() {
                           debe contener otro control interactivo que
                           intercepte el click sin pelear con la
                           navegacion (mismo patron que en otras tabs). */}
-                      <div className="flex items-center gap-2 py-2.5 pl-5 pr-4">
+                      <div
+                        className={`flex items-center gap-2 border-l-4 py-2.5 pl-4 pr-4 ${
+                          ESTADO_CLIENTE_STYLES[cl.estado]?.border || 'border-l-transparent'
+                        } ${ESTADO_CLIENTE_STYLES[cl.estado]?.bg || ''}`}
+                      >
                         <input
                           type="checkbox"
                           checked={seleccionados.has(cl.id)}
