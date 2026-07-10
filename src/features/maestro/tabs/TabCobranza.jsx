@@ -8,6 +8,7 @@ import { ESTADO_CLIENTE_LABELS, ESTADO_CLIENTE_STYLES } from '../../../models/pr
 import { useAuth } from '../../../context/AuthContext'
 import { reasignarCliente } from '../../../services/clientesService'
 import { construirLinkWhatsapp } from '../../../utils/whatsapp'
+import { WhatsappIcon } from '../../shared/WhatsappIcon'
 
 function obtenerIniciales(nombre) {
   if (!nombre) return '?'
@@ -317,9 +318,9 @@ export default function TabCobranza() {
                             target="_blank"
                             rel="noopener noreferrer"
                             aria-label={`Escribir a ${cl.nombre} por WhatsApp`}
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-success/30 bg-success-soft text-sm text-success active:scale-95 transition-transform"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-success/30 bg-success-soft text-success active:scale-95 transition-transform"
                           >
-                            💬
+                            <WhatsappIcon className="h-4 w-4" />
                           </a>
                         )}
                       </div>

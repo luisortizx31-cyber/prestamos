@@ -12,6 +12,7 @@ import {
   solicitudEstaAprobada,
 } from '../../models/prestamo'
 import { construirLinkWhatsapp } from '../../utils/whatsapp'
+import { WhatsappIcon } from '../shared/WhatsappIcon'
 
 export default function DetalleComisionista() {
   const { comisionistaId } = useParams()
@@ -102,9 +103,9 @@ export default function DetalleComisionista() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`Escribir a ${comisionista?.nombre} por WhatsApp`}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-success/30 bg-success-soft text-lg text-success active:scale-95 transition-transform"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-success/30 bg-success-soft text-success active:scale-95 transition-transform"
           >
-            💬
+            <WhatsappIcon className="h-5 w-5" />
           </a>
         )}
       </header>
@@ -182,9 +183,9 @@ export default function DetalleComisionista() {
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`Escribir a ${c.nombre} por WhatsApp`}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-success/30 bg-success-soft text-lg text-success active:scale-95 transition-transform"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-success/30 bg-success-soft text-success active:scale-95 transition-transform"
                     >
-                      💬
+                      <WhatsappIcon className="h-5 w-5" />
                     </a>
                   )}
                 </li>

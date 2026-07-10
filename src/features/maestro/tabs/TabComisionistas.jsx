@@ -4,6 +4,7 @@ import { listarComisionistas } from '../../../services/comisionistasService'
 import { listarPrestamosPorComisionista } from '../../../services/prestamosService'
 import { BotonExportarExcel } from '../../shared/BotonExportarExcel'
 import { construirLinkWhatsapp } from '../../../utils/whatsapp'
+import { WhatsappIcon } from '../../shared/WhatsappIcon'
 
 export default function TabComisionistas() {
   const [filas, setFilas] = useState([])
@@ -133,9 +134,9 @@ export default function TabComisionistas() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`Escribir a ${f.nombre} por WhatsApp`}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-success/30 bg-success-soft text-sm text-success active:scale-95 transition-transform"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-success/30 bg-success-soft text-success active:scale-95 transition-transform"
                   >
-                    💬
+                    <WhatsappIcon className="h-4 w-4" />
                   </a>
                 )}
                 <Link to={`/comisionistas/${f.uid ?? f.id}`} className="flex items-center gap-2">

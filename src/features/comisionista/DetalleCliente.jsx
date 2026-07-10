@@ -10,6 +10,7 @@ import { BotonEditarPrestamo } from '../shared/BotonEditarPrestamo'
 import { ModalCobro } from '../shared/ModalCobro'
 import { ModalRecalendarizar } from '../shared/ModalRecalendarizar'
 import { ConfirmarClaveMaestro } from '../shared/ConfirmarClaveMaestro'
+import { WhatsappIcon } from '../shared/WhatsappIcon'
 import { useAuth } from '../../context/AuthContext'
 import { useRole } from '../../hooks/useRole'
 import {
@@ -176,9 +177,9 @@ export default function DetalleCliente() {
                         target="_blank"
                         rel="noopener noreferrer"
                         aria-label={`Ubicar a ${cliente.nombre} por WhatsApp`}
-                        className="flex h-7 w-7 items-center justify-center rounded-full border border-success/30 bg-success-soft text-sm text-success active:scale-95 transition-transform"
+                        className="flex h-7 w-7 items-center justify-center rounded-full border border-success/30 bg-success-soft text-success active:scale-95 transition-transform"
                       >
-                        💬
+                        <WhatsappIcon className="h-4 w-4" />
                       </a>
                     )}
                   </span>

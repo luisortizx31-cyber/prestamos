@@ -5,6 +5,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { EtiquetaEstadoCliente } from '../../shared/EtiquetaEstadoCliente'
 import { construirLinkWhatsapp } from '../../../utils/whatsapp'
 import { ESTADO_CLIENTE_STYLES } from '../../../models/prestamo'
+import { WhatsappIcon } from '../../shared/WhatsappIcon'
 
 /**
  * El Maestro puede actuar como su propio comisionista: registrar
@@ -111,9 +112,9 @@ export default function TabMiCartera() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`Escribir a ${c.nombre} por WhatsApp`}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-success/30 bg-success-soft text-lg text-success active:scale-95 transition-transform"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-success/30 bg-success-soft text-success active:scale-95 transition-transform"
               >
-                💬
+                <WhatsappIcon className="h-5 w-5" />
               </a>
             )}
           </li>

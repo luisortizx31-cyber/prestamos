@@ -6,6 +6,7 @@ import { listarPrestamosPorComisionista } from '../../services/prestamosService'
 import { logout } from '../../services/authService'
 import { EtiquetaEstadoCliente } from '../shared/EtiquetaEstadoCliente'
 import { construirLinkWhatsapp } from '../../utils/whatsapp'
+import { WhatsappIcon } from '../shared/WhatsappIcon'
 import { solicitudEstaAprobada, ESTADO_CLIENTE_STYLES, ESTADO_SOLICITUD } from '../../models/prestamo'
 
 export default function DashboardComisionista() {
@@ -193,9 +194,9 @@ export default function DashboardComisionista() {
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
                           aria-label={`Ubicar a ${c.nombre} por WhatsApp`}
-                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-success/30 bg-success-soft text-xl text-success active:scale-95 transition-transform"
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-success/30 bg-success-soft text-success active:scale-95 transition-transform"
                         >
-                          💬
+                          <WhatsappIcon className="h-6 w-6" />
                         </a>
                       )}
                     </li>
