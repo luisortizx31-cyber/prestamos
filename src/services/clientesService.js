@@ -34,6 +34,20 @@ export async function crearCliente({ comisionistaId, nombre, dni, telefono, dire
 }
 
 /**
+ * Actualiza los datos editables de un cliente ya existente. El DNI
+ * queda afuera a proposito: es el identificador que usa
+ * buscarClientePorDni para la unicidad global, cambiarlo desde aca
+ * podria duplicar clientes o desincronizar prestamos ya asociados.
+ */
+export async function actualizarCliente(clienteId, { nombre, telefono, direccion }) {
+  await updateDoc(doc(db, 'clientes', clienteId), {
+    nombre,
+    telefono: telefono || null,
+    direccion: direccion || null,
+  })
+}
+
+/**
  * Guarda las URLs de las fotos del DNI (frente y/o reverso) en el
  * cliente ya creado. Se llama despues de crearCliente porque necesita
  * el clienteId para armar la ruta en Storage.

@@ -149,9 +149,19 @@ export default function DetalleCliente() {
       <div className="mx-auto max-w-lg px-4 py-5 space-y-5">
         {/* Datos personales */}
         <section className="rounded-2xl border border-line bg-surface p-5">
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-soft">
-            Datos personales
-          </h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
+              Datos personales
+            </h2>
+            {(esPropietario || esMaestro) && (
+              <Link
+                to={`/clientes/${clienteId}/editar`}
+                className="text-xs font-medium text-brand"
+              >
+                ✏️ Editar
+              </Link>
+            )}
+          </div>
           <div className="space-y-2 text-sm">
             <Dato label="DNI" valor={cliente.dni} />
             {cliente.telefono && (

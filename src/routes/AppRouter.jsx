@@ -10,6 +10,7 @@ import ConciliacionCaja from '../features/maestro/ConciliacionCaja'
 import DetalleComisionista from '../features/maestro/DetalleComisionista'
 import DashboardComisionista from '../features/comisionista/DashboardComisionista'
 import RegistroCliente from '../features/comisionista/RegistroCliente'
+import EditarCliente from '../features/comisionista/EditarCliente'
 import DetalleCliente from '../features/comisionista/DetalleCliente'
 import RegistroPrestamo from '../features/comisionista/RegistroPrestamo'
 import ChecklistCuotas from '../features/comisionista/ChecklistCuotas'
@@ -75,6 +76,15 @@ export function AppRouter() {
           element={
             <ProtectedRoute allowedRoles={[ROLES.COLLECTOR, ROLES.MASTER]}>
               <DetalleCliente />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/clientes/:clienteId/editar"
+          element={
+            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR, ROLES.MASTER]}>
+              <EditarCliente />
             </ProtectedRoute>
           }
         />
