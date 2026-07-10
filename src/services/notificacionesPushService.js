@@ -83,7 +83,9 @@ export async function escucharNotificacionesEnPrimerPlano(onNotificacion) {
   if (!messaging) return () => {}
 
   return onMessage(messaging, async (payload) => {
-    const { title, body } = payload.notification || {}
+    // Igual que en src/sw.js: el envio manda todo como "data", no
+    // "notification".
+    const { title, body } = payload.data || {}
     // "new Notification(...)" tira error en varios navegadores cuando
     // ya hay un service worker controlando la pagina (piden mostrarla
     // a traves del registro del SW si o si, no del constructor directo).

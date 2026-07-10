@@ -48,13 +48,16 @@ export default async function handler(req, res) {
     return
   }
 
+  // TODO como "data" (nunca "notification"): si el payload trae un campo
+  // "notification", Chrome/Android la muestra el solo con su icono
+  // generico, SIN pasar por nuestro onBackgroundMessage — eso causaba una
+  // segunda notificacion duplicada que ademas no llevaba a ningun lado al
+  // tocarla (le faltaba el data.url). Mandando todo como "data", el unico
+  // que la muestra es nuestro propio codigo (ver src/sw.js), con icono y
+  // url correctos. FCM exige que los valores de "data" sean strings.
   const respuesta = await getMessaging().sendEachForMulticast({
     tokens,
-    notification: { title, body },
-    // data (no notification) porque solo se usa del lado del cliente al
-    // tocar la notificacion (ver notificationclick en src/sw.js) — FCM
-    // exige que los valores de "data" sean strings.
-    data: url ? { url } : undefined,
+    data: { title, body: body || '', ...(url ? { url } : {}) },
   })
 
   // Limpieza: si un token quedo invalido (celular desinstalo la app,

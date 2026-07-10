@@ -50,7 +50,10 @@ firebase.initializeApp({
 const messaging = firebase.messaging()
 
 messaging.onBackgroundMessage((payload) => {
-  const { title, body } = payload.notification || {}
+  // El envio (ver api/enviar-notificacion.js) manda todo como "data", no
+  // "notification" — evita que Chrome/Android auto-muestre una segunda
+  // notificacion generica por su cuenta.
+  const { title, body } = payload.data || {}
   self.registration.showNotification(title || 'Prestamos Jhairo', {
     body,
     icon: '/icon-192.png',
