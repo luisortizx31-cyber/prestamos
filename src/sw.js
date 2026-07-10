@@ -55,5 +55,26 @@ messaging.onBackgroundMessage((payload) => {
     body,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
+    data: payload.data,
   })
+})
+
+// Al tocar la notificacion: enfoca una pestaña ya abierta de la app (y
+// la manda a la url indicada, ej. /conciliacion para un cobro) o abre
+// una nueva si no hay ninguna. Sin esto, tocar la notificacion no hacia
+// nada mas que cerrarla.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = new URL(event.notification.data?.url || '/', self.location.origin).href
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      const existente = clientList.find((c) => 'focus' in c)
+      if (existente) {
+        existente.navigate(url)
+        return existente.focus()
+      }
+      return self.clients.openWindow(url)
+    })
+  )
 })

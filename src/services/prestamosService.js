@@ -130,6 +130,7 @@ export async function crearPrestamoConCronograma(params) {
       await notificarMaestro({
         title: '📋 Nueva solicitud de prestamo',
         body: `${nombreCliente} — S/ ${montoPrestado}`,
+        url: '/',
       })
     } catch (err) {
       console.error('[crearPrestamoConCronograma] No se pudo notificar al Maestro:', err)

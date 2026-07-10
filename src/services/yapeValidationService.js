@@ -143,6 +143,7 @@ async function notificarCobroPorVerificar(clienteId, monto) {
     await notificarMaestro({
       title: '💰 Cobro por verificar',
       body: `${nombreCliente} — S/ ${monto}`,
+      url: '/conciliacion',
     })
   } catch (err) {
     console.error('[notificarCobroPorVerificar] No se pudo notificar al Maestro:', err)

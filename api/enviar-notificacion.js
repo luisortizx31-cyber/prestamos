@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     return
   }
 
-  const { idToken, title, body } = req.body || {}
+  const { idToken, title, body, url } = req.body || {}
   if (!idToken || !title) {
     res.status(400).json({ error: 'Faltan idToken y/o title.' })
     return
@@ -51,6 +51,10 @@ export default async function handler(req, res) {
   const respuesta = await getMessaging().sendEachForMulticast({
     tokens,
     notification: { title, body },
+    // data (no notification) porque solo se usa del lado del cliente al
+    // tocar la notificacion (ver notificationclick en src/sw.js) — FCM
+    // exige que los valores de "data" sean strings.
+    data: url ? { url } : undefined,
   })
 
   // Limpieza: si un token quedo invalido (celular desinstalo la app,

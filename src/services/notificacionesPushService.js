@@ -90,6 +90,7 @@ export async function escucharNotificacionesEnPrimerPlano(onNotificacion) {
       body,
       icon: '/icon-192.png',
       badge: '/icon-192.png',
+      data: payload.data,
     })
     onNotificacion?.(payload)
   })
@@ -104,7 +105,7 @@ export async function escucharNotificacionesEnPrimerPlano(onNotificacion) {
  * el envio falla, por eso el caller la envuelve en try/catch (mismo
  * patron que recalcularEstadoCliente en yapeValidationService.js).
  */
-export async function notificarMaestro({ title, body }) {
+export async function notificarMaestro({ title, body, url }) {
   const user = auth.currentUser
   if (!user) return
 
@@ -112,7 +113,7 @@ export async function notificarMaestro({ title, body }) {
   const respuesta = await fetch('/api/enviar-notificacion', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idToken, title, body }),
+    body: JSON.stringify({ idToken, title, body, url }),
   })
 
   if (!respuesta.ok) {
