@@ -566,9 +566,9 @@ function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCo
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <span className="money text-sm font-semibold text-ink">
-                  S/ {cuota.monto.toFixed(2)}
+                  S/ {formatMonto(cuota.monto)}
                 </span>
                 {esPendiente &&
                   !cuota.recalendarizacionPendiente &&
@@ -577,7 +577,7 @@ function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCo
                   solicitudEstaAprobada(prestamo) && (
                     <button
                       onClick={() => onCobrar(cuota)}
-                      className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white active:scale-95 transition-transform ${
+                      className={`rounded-lg px-2 py-1.5 text-xs font-semibold text-white active:scale-95 transition-transform ${
                         vencida ? 'bg-danger' : 'bg-brand'
                       }`}
                     >
@@ -593,10 +593,9 @@ function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCo
                     <button
                       onClick={() => onRecalendarizar(cuota)}
                       title="El cliente paga solo el interes y todas las cuotas pendientes se corren un periodo"
-                      className="flex items-center gap-1 rounded-lg border border-gold/40 bg-gold-soft px-2.5 py-1.5 text-xs font-semibold text-gold active:scale-95 transition-transform"
+                      className="rounded-lg border border-gold/40 bg-gold-soft px-2 py-1.5 text-xs font-semibold text-gold active:scale-95 transition-transform"
                     >
-                      <span>↻</span>
-                      Interés
+                      ↻ Interés
                     </button>
                   )}
               </div>
@@ -631,4 +630,12 @@ function formatFecha(fecha) {
   return new Date(fecha).toLocaleDateString('es-PE', {
     day: '2-digit', month: 'short', year: 'numeric',
   })
+}
+
+// Sin decimales cuando son .00 (ej. "310" en vez de "310.00") — en la
+// fila de cada cuota el monto compite por espacio con la fecha y los
+// botones de accion, y los ".00" no aportan nada la mayoria de las veces.
+function formatMonto(monto) {
+  const valor = monto || 0
+  return valor % 1 === 0 ? valor.toFixed(0) : valor.toFixed(2)
 }
