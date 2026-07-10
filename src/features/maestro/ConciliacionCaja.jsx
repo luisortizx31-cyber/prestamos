@@ -206,7 +206,18 @@ export default function ConciliacionCaja() {
   return (
     <div className="min-h-screen bg-paper pb-24">
       <header className="flex items-center gap-3 border-b border-line bg-surface px-4 py-4">
-        <button onClick={() => navigate(-1)} className="text-xl leading-none text-ink-soft">
+        <button
+          onClick={() => {
+            // window.history.state.idx > 0 significa que esta pestaña
+            // realmente tiene una pagina anterior a la que volver. Al
+            // abrir esta pantalla desde una notificacion push (ver
+            // notificationclick en src/sw.js), no hay historial previo
+            // en esa ventana nueva — navigate(-1) ahi no hacia nada.
+            if (window.history.state?.idx > 0) navigate(-1)
+            else navigate('/')
+          }}
+          className="text-xl leading-none text-ink-soft"
+        >
           ←
         </button>
         <div>
