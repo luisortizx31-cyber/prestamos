@@ -80,11 +80,16 @@ export async function escucharNotificacionesEnPrimerPlano(onNotificacion) {
   const messaging = await messagingPromise
   if (!messaging) return () => {}
 
-  return onMessage(messaging, (payload) => {
+  return onMessage(messaging, async (payload) => {
     const { title, body } = payload.notification || {}
-    new Notification(title || 'Prestamos Jhairo', {
+    // "new Notification(...)" tira error en varios navegadores cuando
+    // ya hay un service worker controlando la pagina (piden mostrarla
+    // a traves del registro del SW si o si, no del constructor directo).
+    const registration = await navigator.serviceWorker.ready
+    await registration.showNotification(title || 'Prestamos Jhairo', {
       body,
       icon: '/icon-192.png',
+      badge: '/icon-192.png',
     })
     onNotificacion?.(payload)
   })
