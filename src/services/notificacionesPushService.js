@@ -93,7 +93,7 @@ export async function escucharNotificacionesEnPrimerPlano(onNotificacion) {
     await registration.showNotification(title || 'Prestamos Jhairo', {
       body,
       icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      badge: '/badge-96.png',
       data: payload.data,
       // Mismo "tag" que src/sw.js: si Firebase tambien dispara esto por
       // el otro camino (segundo plano) para el mismo mensaje, gana el

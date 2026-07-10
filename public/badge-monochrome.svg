@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Badge monocromo para Android: solo el glifo en blanco sobre
+       transparente (sin fondo ni borde) — Android recolorea esto solo,
+       y si el PNG no tiene alpha real se ve un cuadro en blanco vacio. -->
+  <text
+    x="256" y="330"
+    text-anchor="middle"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="260"
+    font-weight="800"
+    fill="#ffffff"
+    letter-spacing="-8"
+  >S/</text>
+</svg>

@@ -57,7 +57,10 @@ messaging.onBackgroundMessage((payload) => {
   self.registration.showNotification(title || 'Prestamos Jhairo', {
     body,
     icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    // "badge" (icono chico monocromo de Android) necesita fondo
+    // transparente para que el sistema lo recoloree solo — usar el
+    // icono a color de arriba aca lo dejaba en blanco vacio.
+    badge: '/badge-96.png',
     data: payload.data,
     // En algunos celulares/PWAs Firebase dispara el mismo mensaje tanto
     // en primer plano (onMessage, ver notificacionesPushService.js) como
