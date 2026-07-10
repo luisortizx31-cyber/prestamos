@@ -593,9 +593,10 @@ function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCo
                     <button
                       onClick={() => onRecalendarizar(cuota)}
                       title="El cliente paga solo el interes y todas las cuotas pendientes se corren un periodo"
-                      className="rounded-lg border border-gold/40 bg-gold-soft px-2.5 py-1.5 text-xs font-semibold text-gold active:scale-95 transition-transform"
+                      className="flex items-center gap-1 rounded-lg border border-gold/40 bg-gold-soft px-2.5 py-1.5 text-xs font-semibold text-gold active:scale-95 transition-transform"
                     >
-                      ↻
+                      <span>↻</span>
+                      Interés
                     </button>
                   )}
               </div>
