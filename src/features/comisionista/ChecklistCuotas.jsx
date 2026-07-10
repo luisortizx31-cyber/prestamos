@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { doc, getDoc, onSnapshot, collection, query, where } from 'firebase/firestore'
 import { db } from '../../config/firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -11,7 +11,19 @@ import { ESTADO_CUOTA, METODO_PAGO, TIPO_CUOTA_LABELS, ESTADO_SOLICITUD, solicit
 export default function ChecklistCuotas() {
   const { prestamoId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { usuarioAuth } = useAuth()
+
+  // Si llegamos aca recien creando/renovando un prestamo (ver
+  // RegistroPrestamo.jsx), "atras" no debe volver al formulario ya
+  // vacio ni al detalle del cliente: va directo al panel.
+  function volver() {
+    if (location.state?.volverAlPanel) {
+      navigate('/')
+    } else {
+      navigate(-1)
+    }
+  }
   const { esMaestro } = useRole()
   const [prestamo, setPrestamo] = useState(null)
   const [clienteNombre, setClienteNombre] = useState(null)
@@ -106,7 +118,7 @@ export default function ChecklistCuotas() {
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-danger font-medium">{errorCarga}</p>
         <button
-          onClick={() => navigate(-1)}
+          onClick={volver}
           className="rounded-lg border border-line px-4 py-2 text-sm text-ink-soft"
         >
           ← Volver
@@ -119,7 +131,7 @@ export default function ChecklistCuotas() {
     <div className="min-h-screen bg-paper pb-10">
       <header className="border-b border-line bg-surface px-4 py-4">
         <div className="flex items-center gap-3 mb-3">
-          <button onClick={() => navigate(-1)} className="text-xl leading-none text-ink-soft">
+          <button onClick={volver} className="text-xl leading-none text-ink-soft">
             ←
           </button>
           <div>

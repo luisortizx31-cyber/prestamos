@@ -244,7 +244,13 @@ export default function RegistroPrestamo() {
         await marcarPrestamoRenovado(prestamoOrigenId, prestamoId)
       }
 
-      navigate(`/prestamos/${prestamoId}/cuotas`)
+      // replace + volverAlPanel: si tocan "atras" desde la pantalla de
+      // cuotas, no tiene sentido volver a este formulario ya vacio (el
+      // prestamo ya quedo creado) — que vuelvan directo a su panel.
+      navigate(`/prestamos/${prestamoId}/cuotas`, {
+        replace: true,
+        state: { volverAlPanel: true },
+      })
     } catch (err) {
       console.error('[RegistroPrestamo]', err)
       setError('No se pudo registrar el prestamo. Intenta de nuevo.')
