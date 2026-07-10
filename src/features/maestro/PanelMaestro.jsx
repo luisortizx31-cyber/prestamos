@@ -126,6 +126,11 @@ export default function PanelMaestro() {
         </button>
       </header>
 
+      <p className="bg-black px-4 py-1 font-mono text-[10px] text-white">
+        debug push: soportado={String(estadoPush.soportado)} permiso={estadoPush.permiso} activado=
+        {String(estadoPush.activado)}
+      </p>
+
       {estadoPush.soportado && estadoPush.permiso === 'denied' && !estadoPush.activado && (
         <div className="flex flex-wrap items-center gap-3 border-b border-line bg-surface px-4 py-3">
           <span className="text-lg shrink-0">🔕</span>
