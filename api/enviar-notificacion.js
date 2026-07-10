@@ -43,6 +43,7 @@ export default async function handler(req, res) {
   const snapMaestros = await db.collection('usuarios').where('role', '==', 'master').get()
 
   const tokens = snapMaestros.docs.flatMap((d) => d.data().fcmTokens || [])
+  console.log(`[enviar-notificacion] maestros encontrados: ${snapMaestros.size}, tokens: ${tokens.length}`)
   if (tokens.length === 0) {
     res.status(200).json({ enviados: 0, motivo: 'El Maestro no tiene notificaciones activadas.' })
     return
@@ -52,6 +53,10 @@ export default async function handler(req, res) {
     tokens,
     notification: { title, body },
   })
+  console.log(
+    `[enviar-notificacion] exitosos: ${respuesta.successCount}, fallidos: ${respuesta.failureCount}`,
+    JSON.stringify(respuesta.responses.map((r) => (r.success ? 'ok' : r.error?.code)))
+  )
 
   // Limpieza: si un token quedo invalido (celular desinstalo la app,
   // permiso revocado, etc.), Firebase lo reporta aca — lo sacamos de
