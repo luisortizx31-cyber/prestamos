@@ -78,11 +78,9 @@ export async function activarNotificacionesPush(uid) {
  */
 export async function escucharNotificacionesEnPrimerPlano(onNotificacion) {
   const messaging = await messagingPromise
-  console.log('[notificacionesPushService] escuchando en primer plano, messaging soportado:', !!messaging)
   if (!messaging) return () => {}
 
   return onMessage(messaging, async (payload) => {
-    console.log('[notificacionesPushService] mensaje recibido en primer plano:', payload)
     const { title, body } = payload.notification || {}
     // "new Notification(...)" tira error en varios navegadores cuando
     // ya hay un service worker controlando la pagina (piden mostrarla
