@@ -126,6 +126,17 @@ export default function PanelMaestro() {
         </button>
       </header>
 
+      {estadoPush.soportado && estadoPush.permiso === 'denied' && !estadoPush.activado && (
+        <div className="flex flex-wrap items-center gap-3 border-b border-line bg-surface px-4 py-3">
+          <span className="text-lg shrink-0">🔕</span>
+          <p className="flex-1 min-w-[12rem] text-sm text-ink-soft">
+            Las notificaciones quedaron bloqueadas para este sitio. Para activarlas,
+            tocá el candado/ⓘ al lado de la direccion del sitio en el navegador →
+            Permisos → Notificaciones → Restablecer, y volvé a entrar.
+          </p>
+        </div>
+      )}
+
       {estadoPush.soportado && estadoPush.permiso !== 'denied' && !estadoPush.activado && (
         <div className="flex flex-wrap items-center gap-3 border-b border-line bg-surface px-4 py-3">
           <span className="text-lg shrink-0">🔔</span>
