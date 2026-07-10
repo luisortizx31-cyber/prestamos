@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { recalcularEstadoCliente } from './clienteEstadoService'
+import { notificarMaestro } from './notificacionesPushService'
 import { METODO_PAGO, ESTADO_CUOTA } from '../models/prestamo'
 
 export class CodigoYapeDuplicadoError extends Error {
@@ -86,6 +87,8 @@ export async function registrarPagoConValidacionYape({
   } catch (err) {
     console.error('[registrarPagoConValidacionYape] No se pudo recalcular estado:', err)
   }
+
+  await notificarCobroPorVerificar(clienteId, monto)
 }
 
 /**
@@ -123,5 +126,25 @@ export async function registrarPagoEfectivo({
     await recalcularEstadoCliente(clienteId, comisionistaId)
   } catch (err) {
     console.error('[registrarPagoEfectivo] No se pudo recalcular estado:', err)
+  }
+
+  await notificarCobroPorVerificar(clienteId, monto)
+}
+
+/**
+ * Aviso push al Maestro de que hay un cobro nuevo por verificar en
+ * Conciliacion de Caja. Fire-and-forget: si falla, no debe tumbar el
+ * registro del cobro, que ya quedo confirmado en Firestore arriba.
+ */
+async function notificarCobroPorVerificar(clienteId, monto) {
+  try {
+    const clienteSnap = await getDoc(doc(db, 'clientes', clienteId))
+    const nombreCliente = clienteSnap.exists() ? clienteSnap.data().nombre : 'un cliente'
+    await notificarMaestro({
+      title: '💰 Cobro por verificar',
+      body: `${nombreCliente} — S/ ${monto}`,
+    })
+  } catch (err) {
+    console.error('[notificarCobroPorVerificar] No se pudo notificar al Maestro:', err)
   }
 }

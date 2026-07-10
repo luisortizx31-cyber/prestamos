@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { collection, collectionGroup, query, where, getDocs } from 'firebase/firestore'
 import { db } from '../../config/firebase'
 import { logout } from '../../services/authService'
+import { useAuth } from '../../context/AuthContext'
+import { estadoNotificaciones, activarNotificacionesPush } from '../../services/notificacionesPushService'
 import { ESTADO_SOLICITUD, ESTADO_CUOTA } from '../../models/prestamo'
 import TabCobranza from './tabs/TabCobranza'
 import TabComisionistas from './tabs/TabComisionistas'
@@ -21,8 +23,34 @@ const TABS = [
 ]
 
 export default function PanelMaestro() {
+  const { usuarioAuth } = useAuth()
   const [tabActiva, setTabActiva] = useState('comisionistas')
   const [pendientes, setPendientes] = useState({ solicitudes: 0, cobros: 0, recalendarizaciones: 0 })
+  const [permisoPush, setPermisoPush] = useState('unsupported')
+  const [activandoPush, setActivandoPush] = useState(false)
+
+  // Se revisa al entrar (no hace falta un listener: el permiso del
+  // navegador solo cambia por accion directa del usuario, nunca en
+  // segundo plano) si conviene ofrecer activar las notificaciones.
+  useEffect(() => {
+    async function cargarEstadoPush() {
+      setPermisoPush(estadoNotificaciones().permiso)
+    }
+    cargarEstadoPush()
+  }, [])
+
+  async function handleActivarPush() {
+    setActivandoPush(true)
+    try {
+      const { concedido } = await activarNotificacionesPush(usuarioAuth.uid)
+      setPermisoPush(concedido ? 'granted' : 'denied')
+    } catch (err) {
+      console.error('[PanelMaestro] Error al activar notificaciones push:', err)
+      alert('No se pudo activar las notificaciones. Intenta de nuevo mas tarde.')
+    } finally {
+      setActivandoPush(false)
+    }
+  }
 
   // Se calcula una vez al entrar al panel — mismo patron que el resto
   // de las tabs (sin listener en tiempo real), asi que si algo cambia
@@ -76,6 +104,24 @@ export default function PanelMaestro() {
           Salir
         </button>
       </header>
+
+      {permisoPush === 'default' && (
+        <div className="flex flex-wrap items-center gap-3 border-b border-line bg-surface px-4 py-3">
+          <span className="text-lg shrink-0">🔔</span>
+          <p className="flex-1 min-w-[12rem] text-sm text-ink-soft">
+            Activa las notificaciones para enterarte al instante cuando llegue una
+            solicitud de prestamo o un cobro nuevo, aunque tengas el celular
+            bloqueado.
+          </p>
+          <button
+            onClick={handleActivarPush}
+            disabled={activandoPush}
+            className="shrink-0 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white active:scale-95 transition-transform disabled:opacity-50"
+          >
+            {activandoPush ? 'Activando...' : 'Activar notificaciones'}
+          </button>
+        </div>
+      )}
 
       {totalPendientes > 0 && (
         <div className="flex flex-wrap items-center gap-3 border-b border-gold/30 bg-gold-soft px-4 py-3">

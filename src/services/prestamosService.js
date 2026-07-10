@@ -12,6 +12,7 @@ import {
 import { db } from '../config/firebase'
 import { calcularMontos, generarCronograma } from '../utils/calcularCronograma'
 import { ESTADO_SOLICITUD } from '../models/prestamo'
+import { notificarMaestro } from './notificacionesPushService'
 
 /**
  * Crea un préstamo y su cronograma de cuotas en una sola escritura por
@@ -116,6 +117,25 @@ export async function crearPrestamoConCronograma(params) {
   })
 
   await batch.commit()
+
+  // Aviso push al Maestro: solo tiene sentido si de verdad queda una
+  // solicitud pendiente de su aprobacion (si el propio Maestro se
+  // autoaprobo, notificarse a si mismo no aporta nada). Fire-and-forget
+  // — un push que falla no debe tumbar la creacion del prestamo, que ya
+  // se confirmo arriba.
+  if (!autoAprobar) {
+    try {
+      const clienteSnap = await getDoc(doc(db, 'clientes', clienteId))
+      const nombreCliente = clienteSnap.exists() ? clienteSnap.data().nombre : 'un cliente'
+      await notificarMaestro({
+        title: '📋 Nueva solicitud de prestamo',
+        body: `${nombreCliente} — S/ ${montoPrestado}`,
+      })
+    } catch (err) {
+      console.error('[crearPrestamoConCronograma] No se pudo notificar al Maestro:', err)
+    }
+  }
+
   return prestamoRef.id
 }
 

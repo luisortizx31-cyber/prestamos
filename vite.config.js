@@ -9,6 +9,17 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // injectManifest (en vez de generateSW): necesitamos un service
+      // worker propio (src/sw.js) porque tiene que manejar tambien los
+      // mensajes en segundo plano de Firebase Cloud Messaging (push de
+      // "nueva solicitud" / "cobro por verificar" al Maestro), ademas
+      // del precacheo normal de la PWA.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+      },
       includeAssets: ['favicon.svg', 'icon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Prestamos Jhairo',
@@ -39,16 +50,6 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
-          },
-        ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'firebase-cache', networkTimeoutSeconds: 10 },
           },
         ],
       },
