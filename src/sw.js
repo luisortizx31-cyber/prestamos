@@ -56,6 +56,12 @@ messaging.onBackgroundMessage((payload) => {
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     data: payload.data,
+    // En algunos celulares/PWAs Firebase dispara el mismo mensaje tanto
+    // en primer plano (onMessage, ver notificacionesPushService.js) como
+    // en segundo plano (aca) — con el mismo "tag" (el messageId unico
+    // del envio), la segunda llamada REEMPLAZA a la primera en vez de
+    // mostrarse como una notificacion duplicada.
+    tag: payload.messageId,
   })
 })
 

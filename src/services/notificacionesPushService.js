@@ -93,6 +93,10 @@ export async function escucharNotificacionesEnPrimerPlano(onNotificacion) {
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       data: payload.data,
+      // Mismo "tag" que src/sw.js: si Firebase tambien dispara esto por
+      // el otro camino (segundo plano) para el mismo mensaje, gana el
+      // que se muestre ultimo en vez de duplicarse.
+      tag: payload.messageId,
     })
     onNotificacion?.(payload)
   })
