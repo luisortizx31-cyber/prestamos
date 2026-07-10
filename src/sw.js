@@ -1,6 +1,20 @@
 import { precacheAndRoute } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
 import { NetworkFirst } from 'workbox-strategies'
+import { clientsClaim } from 'workbox-core'
+
+// Con generateSW (estrategia anterior), vite-plugin-pwa inyectaba esto
+// automaticamente. Con injectManifest (SW propio) hay que hacerlo a
+// mano: sin esto, cuando se sube una version nueva del SW, el navegador
+// la deja "esperando" y sigue sirviendo la version vieja cacheada hasta
+// que se cierren TODAS las pestañas/instancias de la app — con esto, en
+// cambio, el registerType:'autoUpdate' del cliente le manda un mensaje
+// SKIP_WAITING a este SW apenas detecta la version nueva, y clientsClaim()
+// hace que tome el control de inmediato en vez de esperar una recarga.
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting()
+})
+clientsClaim()
 
 // Precacheo normal de la PWA (mismo comportamiento que antes con
 // generateSW): self.__WB_MANIFEST lo inyecta vite-plugin-pwa en build.
