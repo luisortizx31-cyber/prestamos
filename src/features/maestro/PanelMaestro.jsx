@@ -26,7 +26,7 @@ export default function PanelMaestro() {
   const { usuarioAuth } = useAuth()
   const [tabActiva, setTabActiva] = useState('comisionistas')
   const [pendientes, setPendientes] = useState({ solicitudes: 0, cobros: 0, recalendarizaciones: 0 })
-  const [permisoPush, setPermisoPush] = useState('unsupported')
+  const [estadoPush, setEstadoPush] = useState({ soportado: true, permiso: 'default', activado: false })
   const [activandoPush, setActivandoPush] = useState(false)
 
   // Se revisa al entrar (no hace falta un listener: el permiso del
@@ -34,7 +34,7 @@ export default function PanelMaestro() {
   // segundo plano) si conviene ofrecer activar las notificaciones.
   useEffect(() => {
     async function cargarEstadoPush() {
-      setPermisoPush(estadoNotificaciones().permiso)
+      setEstadoPush(estadoNotificaciones())
     }
     cargarEstadoPush()
   }, [])
@@ -42,8 +42,8 @@ export default function PanelMaestro() {
   async function handleActivarPush() {
     setActivandoPush(true)
     try {
-      const { concedido } = await activarNotificacionesPush(usuarioAuth.uid)
-      setPermisoPush(concedido ? 'granted' : 'denied')
+      await activarNotificacionesPush(usuarioAuth.uid)
+      setEstadoPush(estadoNotificaciones())
     } catch (err) {
       console.error('[PanelMaestro] Error al activar notificaciones push:', err)
       alert('No se pudo activar las notificaciones. Intenta de nuevo mas tarde.')
@@ -105,7 +105,7 @@ export default function PanelMaestro() {
         </button>
       </header>
 
-      {permisoPush === 'default' && (
+      {estadoPush.soportado && estadoPush.permiso !== 'denied' && !estadoPush.activado && (
         <div className="flex flex-wrap items-center gap-3 border-b border-line bg-surface px-4 py-3">
           <span className="text-lg shrink-0">🔔</span>
           <p className="flex-1 min-w-[12rem] text-sm text-ink-soft">

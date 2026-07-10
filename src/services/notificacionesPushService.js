@@ -2,16 +2,28 @@ import { getToken } from 'firebase/messaging'
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
 import { auth, db, messagingPromise } from '../config/firebase'
 
+const CLAVE_TOKEN_GUARDADO = 'pushActivado'
+
 /**
  * Estado actual de las notificaciones push en este navegador: si el
- * dispositivo las soporta, y si el permiso ya fue concedido/negado (para
- * no volver a preguntar si el usuario ya respondio antes).
+ * dispositivo las soporta, si el permiso ya fue concedido/negado (para
+ * no volver a preguntar si el usuario ya respondio antes), y si el
+ * token de ESTE dispositivo ya se guardo con exito en Firestore.
+ *
+ * "activado" es la fuente de verdad real (no "permiso concedido"):
+ * el navegador puede tener el permiso otorgado sin que el token se
+ * haya llegado a guardar (ej. si getToken() fallo por una VAPID key
+ * invalida) — en ese caso Notification.permission ya quedo en
+ * 'granted' para siempre (el navegador no vuelve a preguntar), pero
+ * activarNotificacionesPush() nunca se completo. Por eso el banner en
+ * PanelMaestro.jsx se guia por "activado", no por "permiso".
  */
 export function estadoNotificaciones() {
   const soportado = typeof Notification !== 'undefined'
   return {
     soportado,
     permiso: soportado ? Notification.permission : 'unsupported', // 'default' | 'granted' | 'denied'
+    activado: localStorage.getItem(CLAVE_TOKEN_GUARDADO) === '1',
   }
 }
 
@@ -49,6 +61,7 @@ export async function activarNotificacionesPush(uid) {
   await updateDoc(doc(db, 'usuarios', uid), {
     fcmTokens: arrayUnion(token),
   })
+  localStorage.setItem(CLAVE_TOKEN_GUARDADO, '1')
 
   return { concedido: true }
 }
