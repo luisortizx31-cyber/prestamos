@@ -6,7 +6,7 @@ import { listarPrestamosPorComisionista } from '../../services/prestamosService'
 import { logout } from '../../services/authService'
 import { EtiquetaEstadoCliente } from '../shared/EtiquetaEstadoCliente'
 import { construirLinkWhatsapp } from '../../utils/whatsapp'
-import { solicitudEstaAprobada, ESTADO_CLIENTE_STYLES } from '../../models/prestamo'
+import { solicitudEstaAprobada, ESTADO_CLIENTE_STYLES, ESTADO_SOLICITUD } from '../../models/prestamo'
 
 export default function DashboardComisionista() {
   const { usuarioAuth, perfil } = useAuth()
@@ -14,6 +14,11 @@ export default function DashboardComisionista() {
   const [busqueda, setBusqueda] = useState('')
   const [totalPrestado, setTotalPrestado] = useState(0)
   const [cargando, setCargando] = useState(true)
+  // Clientes con al menos una solicitud pendiente de aprobacion del
+  // Maestro — se les marca un punto parpadeante en la lista para que el
+  // comisionista note de un vistazo cuales tiene que revisar, sin entrar
+  // uno por uno.
+  const [clientesConPendiente, setClientesConPendiente] = useState(new Set())
 
   useEffect(() => {
     if (!usuarioAuth) return
@@ -29,6 +34,13 @@ export default function DashboardComisionista() {
           .filter(solicitudEstaAprobada)
           .reduce((acc, p) => acc + (p.montoPrestado || 0), 0)
         setTotalPrestado(total)
+        setClientesConPendiente(
+          new Set(
+            listaPrestamos
+              .filter((p) => p.estadoSolicitud === ESTADO_SOLICITUD.PENDIENTE)
+              .map((p) => p.clienteId)
+          )
+        )
       })
       .catch(console.error)
       .finally(() => setCargando(false))
@@ -132,7 +144,15 @@ export default function DashboardComisionista() {
                   } ${ESTADO_CLIENTE_STYLES[c.estado]?.bg || 'bg-surface'}`}
                 >
                   <div className="min-w-0">
-                    <p className="font-medium text-ink truncate">{c.nombre}</p>
+                    <p className="flex items-center gap-1.5 min-w-0 font-medium text-ink">
+                      {clientesConPendiente.has(c.id) && (
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full bg-gold animate-pulse"
+                          title="Tiene una solicitud pendiente de aprobacion"
+                        />
+                      )}
+                      <span className="truncate">{c.nombre}</span>
+                    </p>
                     <p className="text-sm text-ink-soft">DNI {c.dni}</p>
                   </div>
                   <div className="flex items-center gap-2">
