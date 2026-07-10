@@ -10,20 +10,22 @@ const CLAVE_TOKEN_GUARDADO = 'pushActivado'
  * no volver a preguntar si el usuario ya respondio antes), y si el
  * token de ESTE dispositivo ya se guardo con exito en Firestore.
  *
- * "activado" es la fuente de verdad real (no "permiso concedido"):
- * el navegador puede tener el permiso otorgado sin que el token se
- * haya llegado a guardar (ej. si getToken() fallo por una VAPID key
- * invalida) — en ese caso Notification.permission ya quedo en
- * 'granted' para siempre (el navegador no vuelve a preguntar), pero
- * activarNotificacionesPush() nunca se completo. Por eso el banner en
- * PanelMaestro.jsx se guia por "activado", no por "permiso".
+ * "activado" exige AMBAS cosas: que en algun momento guardamos el token
+ * con exito (localStorage) Y que el permiso del navegador siga
+ * concedido ahora mismo. Solo mirar localStorage no alcanza: si el
+ * usuario resetea el permiso del sitio despues de haberse activado
+ * (ej. sin querer, o probando algo), Notification.permission vuelve a
+ * 'default' pero la bandera vieja en localStorage seguia diciendo que
+ * si — eso escondia el boton de activar aunque ya no hubiera ningun
+ * permiso real ni token valido.
  */
 export function estadoNotificaciones() {
   const soportado = typeof Notification !== 'undefined'
+  const permiso = soportado ? Notification.permission : 'unsupported' // 'default' | 'granted' | 'denied'
   return {
     soportado,
-    permiso: soportado ? Notification.permission : 'unsupported', // 'default' | 'granted' | 'denied'
-    activado: localStorage.getItem(CLAVE_TOKEN_GUARDADO) === '1',
+    permiso,
+    activado: permiso === 'granted' && localStorage.getItem(CLAVE_TOKEN_GUARDADO) === '1',
   }
 }
 
