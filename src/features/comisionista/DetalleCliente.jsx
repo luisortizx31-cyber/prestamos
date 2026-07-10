@@ -255,18 +255,27 @@ export default function DetalleCliente() {
         )}
 
         <ul className="space-y-3">
-          {prestamosOrdenados.map((p) => {
+          {prestamosOrdenados.map((p, index) => {
             const pagadas = p.cuotasPagadas || 0
             const total = p.totalCuotas || 0
             const progreso = total > 0 ? Math.round((pagadas / total) * 100) : 0
             const expandido = prestamoExpandido === p.id
+            // Cada tarjeta alterna de color para que se note donde termina
+            // un prestamo y empieza el siguiente (antes todos eran blancos
+            // y el boton "Editar solicitud" parecia flotar entre dos).
+            const puedeEditar =
+              esPropietario &&
+              (esMaestro
+                ? !p.renovado && !(p.cuotasPagadas > 0)
+                : p.estadoSolicitud === ESTADO_SOLICITUD.PENDIENTE)
+            const puedeRenovar = esPropietario && debeOfrecerRenovacion(p)
 
             return (
               <li key={p.id} className={p.renovado ? 'opacity-60' : undefined}>
                 <div
-                  className={`rounded-2xl border bg-surface overflow-hidden transition-all ${
+                  className={`rounded-2xl border overflow-hidden transition-all ${
                     expandido ? 'border-brand/30 ring-1 ring-brand/10' : 'border-line'
-                  }`}
+                  } ${index % 2 === 0 ? 'bg-surface' : 'bg-brand-soft'}`}
                 >
                   {/* Header del préstamo: toca para expandir/colapsar */}
                   <button
@@ -341,14 +350,19 @@ export default function DetalleCliente() {
                       onRecalendarizar={(cuota) => handleAccionCuota('recalendarizar', cuota, p.id)}
                     />
                   )}
-                </div>
 
-                {esPropietario && (
-                  <>
-                    <BotonEditarPrestamo prestamo={p} clienteId={clienteId} esMaestro={esMaestro} />
-                    <BotonOfrecerRenovacion prestamo={p} clienteId={clienteId} />
-                  </>
-                )}
+                  {/* Acciones del prestamo: van dentro de la misma tarjeta
+                      (con separador) para que quede claro a cual de los
+                      prestamos pertenecen. */}
+                  {(puedeEditar || puedeRenovar) && (
+                    <div className="border-t border-line px-4 pb-4">
+                      {puedeEditar && (
+                        <BotonEditarPrestamo prestamo={p} clienteId={clienteId} esMaestro={esMaestro} />
+                      )}
+                      {puedeRenovar && <BotonOfrecerRenovacion prestamo={p} clienteId={clienteId} />}
+                    </div>
+                  )}
+                </div>
               </li>
             )
           })}
