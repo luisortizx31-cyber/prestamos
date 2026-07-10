@@ -1,4 +1,4 @@
-import { getToken } from 'firebase/messaging'
+import { getToken, onMessage } from 'firebase/messaging'
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
 import { auth, db, messagingPromise } from '../config/firebase'
 
@@ -64,6 +64,30 @@ export async function activarNotificacionesPush(uid) {
   localStorage.setItem(CLAVE_TOKEN_GUARDADO, '1')
 
   return { concedido: true }
+}
+
+/**
+ * Firebase Messaging maneja distinto un mensaje segun si la pestaña
+ * esta en primer plano o no: los mensajes en SEGUNDO plano los agarra
+ * el service worker (ver onBackgroundMessage en src/sw.js) y los
+ * muestra solo. Pero mientras la pestaña esta ABIERTA Y ENFOCADA, el
+ * SDK no dispara eso — hay que escucharlo aca, en la pagina, y mostrar
+ * la notificacion a mano. Sin esto, un push que llega con la pestaña
+ * del Maestro activa no se ve nunca. Se llama una vez al entrar al
+ * panel del Maestro (ver PanelMaestro.jsx).
+ */
+export async function escucharNotificacionesEnPrimerPlano(onNotificacion) {
+  const messaging = await messagingPromise
+  if (!messaging) return () => {}
+
+  return onMessage(messaging, (payload) => {
+    const { title, body } = payload.notification || {}
+    new Notification(title || 'Prestamos Jhairo', {
+      body,
+      icon: '/icon-192.png',
+    })
+    onNotificacion?.(payload)
+  })
 }
 
 /**

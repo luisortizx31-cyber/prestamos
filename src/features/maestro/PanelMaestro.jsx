@@ -4,7 +4,11 @@ import { collection, collectionGroup, query, where, getDocs } from 'firebase/fir
 import { db } from '../../config/firebase'
 import { logout } from '../../services/authService'
 import { useAuth } from '../../context/AuthContext'
-import { estadoNotificaciones, activarNotificacionesPush } from '../../services/notificacionesPushService'
+import {
+  estadoNotificaciones,
+  activarNotificacionesPush,
+  escucharNotificacionesEnPrimerPlano,
+} from '../../services/notificacionesPushService'
 import { ESTADO_SOLICITUD, ESTADO_CUOTA } from '../../models/prestamo'
 import TabCobranza from './tabs/TabCobranza'
 import TabComisionistas from './tabs/TabComisionistas'
@@ -37,6 +41,23 @@ export default function PanelMaestro() {
       setEstadoPush(estadoNotificaciones())
     }
     cargarEstadoPush()
+  }, [])
+
+  // Con la pestaña abierta y enfocada, Firebase Messaging no dispara el
+  // manejador en segundo plano de src/sw.js — hay que escucharlo aca
+  // tambien para no perder los avisos mientras el Maestro esta mirando
+  // el panel.
+  useEffect(() => {
+    let cancelado = false
+    let unsubscribe
+    escucharNotificacionesEnPrimerPlano().then((unsub) => {
+      if (cancelado) unsub()
+      else unsubscribe = unsub
+    })
+    return () => {
+      cancelado = true
+      unsubscribe?.()
+    }
   }, [])
 
   async function handleActivarPush() {
