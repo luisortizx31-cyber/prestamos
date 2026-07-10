@@ -14,6 +14,11 @@ export default function DashboardComisionista() {
   const [busqueda, setBusqueda] = useState('')
   const [totalPrestado, setTotalPrestado] = useState(0)
   const [cargando, setCargando] = useState(true)
+  // Lista larga = mucho scroll para llegar al buscador de arriba. Se
+  // muestran solo los primeros 3 y el resto queda plegado atras de un
+  // acordeon (no aplica mientras hay una busqueda activa: ahi se
+  // quieren ver TODOS los resultados que matchean).
+  const [expandido, setExpandido] = useState(false)
   // Clientes con al menos una solicitud pendiente de aprobacion del
   // Maestro — se les marca un punto parpadeante en la lista para que el
   // comisionista note de un vistazo cuales tiene que revisar, sin entrar
@@ -137,58 +142,82 @@ export default function DashboardComisionista() {
           </div>
         )}
 
-        <ul className="space-y-3">
-          {clientes.filter((c) => {
+        {(() => {
+          const clientesFiltrados = clientes.filter((c) => {
             const q = busqueda.trim().toLowerCase()
             if (!q) return true
             return c.nombre?.toLowerCase().includes(q) || c.dni?.includes(q)
-          }).map((c) => {
-            const linkWhatsapp = construirLinkWhatsapp(c.telefono)
+          })
+          const hayMasDeTres = !busqueda.trim() && clientesFiltrados.length > 3
+          const clientesVisibles =
+            hayMasDeTres && !expandido ? clientesFiltrados.slice(0, 3) : clientesFiltrados
 
-            return (
-              <li key={c.id} className="flex items-center gap-2">
-                <Link
-                  to={`/clientes/${c.id}`}
-                  className={`flex flex-1 min-w-0 items-center justify-between rounded-2xl border border-line border-l-4 p-4 active:bg-paper transition-colors ${
-                    ESTADO_CLIENTE_STYLES[c.estado]?.border || ''
-                  } ${ESTADO_CLIENTE_STYLES[c.estado]?.bg || 'bg-surface'}`}
-                >
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 min-w-0 font-medium text-ink">
-                      {clientesConPendiente.has(c.id) && (
-                        <span
-                          className="h-2 w-2 shrink-0 rounded-full bg-gold animate-pulse"
-                          title="Tiene una solicitud pendiente de aprobacion"
-                        />
+          return (
+            <>
+              <ul className="space-y-3">
+                {clientesVisibles.map((c) => {
+                  const linkWhatsapp = construirLinkWhatsapp(c.telefono)
+
+                  return (
+                    <li key={c.id} className="flex items-center gap-2">
+                      <Link
+                        to={`/clientes/${c.id}`}
+                        className={`flex flex-1 min-w-0 items-center justify-between rounded-2xl border border-line border-l-4 p-4 active:bg-paper transition-colors ${
+                          ESTADO_CLIENTE_STYLES[c.estado]?.border || ''
+                        } ${ESTADO_CLIENTE_STYLES[c.estado]?.bg || 'bg-surface'}`}
+                      >
+                        <div className="min-w-0">
+                          <p className="flex items-center gap-1.5 min-w-0 font-medium text-ink">
+                            {clientesConPendiente.has(c.id) && (
+                              <span
+                                className="h-2 w-2 shrink-0 rounded-full bg-gold animate-pulse"
+                                title="Tiene una solicitud pendiente de aprobacion"
+                              />
+                            )}
+                            <span className="truncate">{c.nombre}</span>
+                          </p>
+                          <p className="text-sm text-ink-soft">DNI {c.dni}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <EtiquetaEstadoCliente estado={c.estado} />
+                          <span className="text-ink-soft text-lg">›</span>
+                        </div>
+                      </Link>
+                      {/* Fuera del Link a proposito: un <a> no puede contener
+                          otro <a> (mismo patron que BotonOfrecerRenovacion en
+                          DetalleCliente.jsx). */}
+                      {linkWhatsapp && (
+                        <a
+                          href={linkWhatsapp}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label={`Ubicar a ${c.nombre} por WhatsApp`}
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-success/30 bg-success-soft text-xl text-success active:scale-95 transition-transform"
+                        >
+                          💬
+                        </a>
                       )}
-                      <span className="truncate">{c.nombre}</span>
-                    </p>
-                    <p className="text-sm text-ink-soft">DNI {c.dni}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <EtiquetaEstadoCliente estado={c.estado} />
-                    <span className="text-ink-soft text-lg">›</span>
-                  </div>
-                </Link>
-                {/* Fuera del Link a proposito: un <a> no puede contener
-                    otro <a> (mismo patron que BotonOfrecerRenovacion en
-                    DetalleCliente.jsx). */}
-                {linkWhatsapp && (
-                  <a
-                    href={linkWhatsapp}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    aria-label={`Ubicar a ${c.nombre} por WhatsApp`}
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-success/30 bg-success-soft text-xl text-success active:scale-95 transition-transform"
-                  >
-                    💬
-                  </a>
-                )}
-              </li>
-            )
-          })}
-        </ul>
+                    </li>
+                  )
+                })}
+              </ul>
+
+              {hayMasDeTres && (
+                <button
+                  type="button"
+                  onClick={() => setExpandido((v) => !v)}
+                  className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-line bg-surface py-2.5 text-sm font-medium text-ink-soft active:scale-[0.99] transition-transform"
+                >
+                  {expandido ? 'Ver menos' : `Ver ${clientesFiltrados.length - 3} mas`}
+                  <span className={`text-xs transition-transform ${expandido ? 'rotate-180' : ''}`}>
+                    ▼
+                  </span>
+                </button>
+              )}
+            </>
+          )
+        })()}
       </main>
     </div>
   )
