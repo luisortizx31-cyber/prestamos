@@ -46,6 +46,9 @@ export default function DetalleCliente() {
   // Las fotos del DNI no se cargan hasta que el usuario las pide -
   // evita gastar ancho de banda/lecturas de Storage en cada visita.
   const [verFotosDni, setVerFotosDni] = useState(false)
+  // Separa los prestamos ya cancelados (pagados por completo) de los
+  // demas, para que no se mezclen en la misma lista.
+  const [vistaPrestamos, setVistaPrestamos] = useState('activos') // 'activos' | 'cancelados'
 
   useEffect(() => {
     async function cargar() {
@@ -128,6 +131,23 @@ export default function DetalleCliente() {
     const fb = b.creadoEn?.toDate ? b.creadoEn.toDate() : new Date(b.creadoEn || 0)
     return fb - fa
   })
+  // Mismo criterio que la etiqueta "Cancelado" de la tarjeta: pagado por
+  // completo, sin ser una solicitud pendiente/rechazada ni un prestamo
+  // ya renovado (ese va aparte, marcado con opacidad, no como cancelado).
+  const esCancelado = (p) => {
+    const pagadas = p.cuotasPagadas || 0
+    const total = p.totalCuotas || 0
+    return (
+      p.estadoSolicitud !== ESTADO_SOLICITUD.PENDIENTE &&
+      p.estadoSolicitud !== ESTADO_SOLICITUD.RECHAZADO &&
+      !p.renovado &&
+      total > 0 &&
+      pagadas === total
+    )
+  }
+  const prestamosCancelados = prestamosOrdenados.filter(esCancelado)
+  const prestamosActivos = prestamosOrdenados.filter((p) => !esCancelado(p))
+  const prestamosVisibles = vistaPrestamos === 'cancelados' ? prestamosCancelados : prestamosActivos
 
   return (
     <div className="min-h-screen bg-paper pb-16">
@@ -265,8 +285,39 @@ export default function DetalleCliente() {
           </div>
         )}
 
+        {prestamos.length > 0 && (
+          <div className="flex rounded-xl border border-line bg-surface p-1">
+            <button
+              type="button"
+              onClick={() => setVistaPrestamos('activos')}
+              className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+                vistaPrestamos === 'activos' ? 'bg-brand text-white' : 'text-ink-soft'
+              }`}
+            >
+              Activos ({prestamosActivos.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setVistaPrestamos('cancelados')}
+              className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+                vistaPrestamos === 'cancelados' ? 'bg-brand text-white' : 'text-ink-soft'
+              }`}
+            >
+              Cancelados ({prestamosCancelados.length})
+            </button>
+          </div>
+        )}
+
+        {prestamos.length > 0 && prestamosVisibles.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-ink-soft">
+            {vistaPrestamos === 'cancelados'
+              ? 'Todavia no tiene ningun prestamo cancelado.'
+              : 'No tiene prestamos activos en este momento.'}
+          </div>
+        )}
+
         <ul className="space-y-3">
-          {prestamosOrdenados.map((p, index) => {
+          {prestamosVisibles.map((p, index) => {
             const pagadas = p.cuotasPagadas || 0
             const total = p.totalCuotas || 0
             const progreso = total > 0 ? Math.round((pagadas / total) * 100) : 0
