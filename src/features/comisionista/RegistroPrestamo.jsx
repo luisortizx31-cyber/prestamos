@@ -220,7 +220,7 @@ export default function RegistroPrestamo() {
       }
 
       const montoNuevo = parseFloat(form.montoPrestado)
-      const prestamoId = await crearPrestamoConCronograma({
+      const nuevoPrestamoId = await crearPrestamoConCronograma({
         clienteId,
         comisionistaId: usuarioAuth.uid,
         // Si es renovacion, montoPrestado del prestamo NUEVO ya incluye
@@ -242,13 +242,13 @@ export default function RegistroPrestamo() {
       // prestamo anterior como renovado (no vuelve a ofrecerse, y queda
       // trazabilidad de cual prestamo nuevo lo reemplazo).
       if (prestamoOrigenId) {
-        await marcarPrestamoRenovado(prestamoOrigenId, prestamoId)
+        await marcarPrestamoRenovado(prestamoOrigenId, nuevoPrestamoId)
       }
 
       // replace + volverAlPanel: si tocan "atras" desde la pantalla de
       // cuotas, no tiene sentido volver a este formulario ya vacio (el
       // prestamo ya quedo creado) — que vuelvan directo a su panel.
-      navigate(`/prestamos/${prestamoId}/cuotas`, {
+      navigate(`/prestamos/${nuevoPrestamoId}/cuotas`, {
         replace: true,
         state: { volverAlPanel: true },
       })
