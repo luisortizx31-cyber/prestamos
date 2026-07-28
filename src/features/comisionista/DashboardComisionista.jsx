@@ -45,16 +45,12 @@ export default function DashboardComisionista() {
       listarPrestamosPorComisionista(usuarioAuth.uid),
     ])
       .then(([listaClientes, listaPrestamos]) => {
-        // Mas nuevo primero: sin esto Firestore los devuelve en un orden
-        // que no tiene relacion con cuando se registraron, y un cliente
-        // recien agregado podia quedar perdido varias pantallas abajo
-        // justo cuando el comisionista lo necesita a mano para
-        // registrarle el prestamo.
-        const ordenados = [...listaClientes].sort((a, b) => {
-          const fa = a.creadoEn?.toDate ? a.creadoEn.toDate() : new Date(a.creadoEn || 0)
-          const fb = b.creadoEn?.toDate ? b.creadoEn.toDate() : new Date(b.creadoEn || 0)
-          return fb - fa
-        })
+        // Orden alfabetico: mas facil de recorrer con 70+ clientes que un
+        // orden por fecha (para encontrar uno recien agregado ya estan
+        // el buscador y la pestaña "Pendientes").
+        const ordenados = [...listaClientes].sort((a, b) =>
+          (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' })
+        )
         setClientes(ordenados)
         // Solo cuenta lo realmente desembolsado: excluye solicitudes
         // pendientes/rechazadas (ver solicitudEstaAprobada en models/prestamo.js).

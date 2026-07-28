@@ -38,7 +38,13 @@ export default function DetalleComisionista() {
       if (snapComisionista.exists()) {
         setComisionista({ id: snapComisionista.id, ...snapComisionista.data() })
       }
-      setClientes(listaClientes)
+      // Orden alfabetico: mas facil de recorrer que el orden que devuelve
+      // Firestore, que no tiene relacion con cuando se registraron.
+      setClientes(
+        [...listaClientes].sort((a, b) =>
+          (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' })
+        )
+      )
       setPrestamos(listaPrestamos)
       setTotales({
         prestado: listaPrestamos.reduce((acc, p) => acc + (p.montoPrestado || 0), 0),

@@ -28,7 +28,13 @@ export default function TabMiCartera() {
     setError(null)
     try {
       const data = await listarClientesPorComisionista(usuarioAuth.uid)
-      setClientes(data)
+      // Orden alfabetico: mas facil de recorrer que el orden que devuelve
+      // Firestore, que no tiene relacion con cuando se registraron.
+      setClientes(
+        [...data].sort((a, b) =>
+          (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' })
+        )
+      )
     } catch (err) {
       console.error('[TabMiCartera]', err)
       setError('No se pudieron cargar tus clientes.')
