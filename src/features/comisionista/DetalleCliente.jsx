@@ -48,7 +48,7 @@ export default function DetalleCliente() {
   const [verFotosDni, setVerFotosDni] = useState(false)
   // Separa los prestamos ya cancelados (pagados por completo) de los
   // demas, para que no se mezclen en la misma lista.
-  const [vistaPrestamos, setVistaPrestamos] = useState('activos') // 'activos' | 'cancelados' | 'rechazados'
+  const [vistaPrestamos, setVistaPrestamos] = useState('activos') // 'activos' | 'renovados' | 'cancelados' | 'rechazados'
 
   useEffect(() => {
     async function cargar() {
@@ -148,12 +148,17 @@ export default function DetalleCliente() {
   const esRechazado = (p) => p.estadoSolicitud === ESTADO_SOLICITUD.RECHAZADO
   const prestamosCancelados = prestamosOrdenados.filter(esCancelado)
   const prestamosRechazados = prestamosOrdenados.filter(esRechazado)
-  const prestamosActivos = prestamosOrdenados.filter((p) => !esCancelado(p) && !esRechazado(p))
+  const prestamosRenovados = prestamosOrdenados.filter((p) => p.renovado)
+  const prestamosActivos = prestamosOrdenados.filter(
+    (p) => !esCancelado(p) && !esRechazado(p) && !p.renovado
+  )
   const prestamosVisibles =
     vistaPrestamos === 'cancelados'
       ? prestamosCancelados
       : vistaPrestamos === 'rechazados'
       ? prestamosRechazados
+      : vistaPrestamos === 'renovados'
+      ? prestamosRenovados
       : prestamosActivos
 
   return (
@@ -293,11 +298,11 @@ export default function DetalleCliente() {
         )}
 
         {prestamos.length > 0 && (
-          <div className="flex rounded-xl border border-line bg-surface p-1">
+          <div className="grid grid-cols-2 gap-1 rounded-xl border border-line bg-surface p-1">
             <button
               type="button"
               onClick={() => setVistaPrestamos('activos')}
-              className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+              className={`rounded-lg py-2 text-sm font-medium transition-colors ${
                 vistaPrestamos === 'activos' ? 'bg-brand text-white' : 'text-ink-soft'
               }`}
             >
@@ -305,8 +310,17 @@ export default function DetalleCliente() {
             </button>
             <button
               type="button"
+              onClick={() => setVistaPrestamos('renovados')}
+              className={`rounded-lg py-2 text-sm font-medium transition-colors ${
+                vistaPrestamos === 'renovados' ? 'bg-brand text-white' : 'text-ink-soft'
+              }`}
+            >
+              Renovados ({prestamosRenovados.length})
+            </button>
+            <button
+              type="button"
               onClick={() => setVistaPrestamos('cancelados')}
-              className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+              className={`rounded-lg py-2 text-sm font-medium transition-colors ${
                 vistaPrestamos === 'cancelados' ? 'bg-brand text-white' : 'text-ink-soft'
               }`}
             >
@@ -315,7 +329,7 @@ export default function DetalleCliente() {
             <button
               type="button"
               onClick={() => setVistaPrestamos('rechazados')}
-              className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+              className={`rounded-lg py-2 text-sm font-medium transition-colors ${
                 vistaPrestamos === 'rechazados' ? 'bg-brand text-white' : 'text-ink-soft'
               }`}
             >
@@ -330,6 +344,8 @@ export default function DetalleCliente() {
               ? 'Todavia no tiene ningun prestamo cancelado.'
               : vistaPrestamos === 'rechazados'
               ? 'Todavia no tiene ningun prestamo rechazado.'
+              : vistaPrestamos === 'renovados'
+              ? 'Todavia no tiene ningun prestamo renovado.'
               : 'No tiene prestamos activos en este momento.'}
           </div>
         )}
@@ -351,7 +367,7 @@ export default function DetalleCliente() {
             const puedeRenovar = esPropietario && debeOfrecerRenovacion(p)
 
             return (
-              <li key={p.id} className={p.renovado ? 'opacity-60' : undefined}>
+              <li key={p.id}>
                 <div
                   className={`rounded-2xl border overflow-hidden transition-all ${
                     expandido ? 'border-brand/30 ring-1 ring-brand/10' : 'border-line'
