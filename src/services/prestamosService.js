@@ -8,6 +8,8 @@ import {
   query,
   where,
   serverTimestamp,
+  setDoc,
+  deleteDoc,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { calcularMontos, generarCronograma } from '../utils/calcularCronograma'
@@ -180,29 +182,48 @@ export async function actualizarPrestamoConCronograma(prestamoId, params) {
   const cuotasRef = collection(prestamoRef, 'cuotas')
   const cuotasExistentes = await getDocs(cuotasRef)
 
-  const batch = writeBatch(db)
-
-  batch.update(prestamoRef, {
-    tasaInteres,
-    tipoCuota,
-    fechaInicio,
-    ...montos,
-    totalCuotas: cronograma.length,
-  })
-
-  cuotasExistentes.docs.forEach((d) => batch.delete(d.ref))
-
-  cronograma.forEach((cuota) => {
-    const cuotaRef = doc(cuotasRef)
-    batch.set(cuotaRef, {
-      ...cuota,
-      comisionistaId,
-      clienteId,
-      prestamoId,
+  // DIAGNOSTICO TEMPORAL: separado en pasos individuales (en vez de un
+  // solo batch) para ver EXACTAMENTE cual escritura rechaza Firestore.
+  // TODO: revertir a un solo writeBatch una vez identificado el paso.
+  try {
+    await updateDoc(prestamoRef, {
+      tasaInteres,
+      tipoCuota,
+      fechaInicio,
+      ...montos,
+      totalCuotas: cronograma.length,
     })
-  })
+    console.log('[DIAG] update prestamo: OK')
+  } catch (err) {
+    console.error('[DIAG] update prestamo FALLO:', err.code, err.message)
+    throw err
+  }
 
-  await batch.commit()
+  for (const d of cuotasExistentes.docs) {
+    try {
+      await deleteDoc(d.ref)
+      console.log('[DIAG] delete cuota', d.id, ': OK')
+    } catch (err) {
+      console.error('[DIAG] delete cuota', d.id, 'FALLO:', err.code, err.message)
+      throw err
+    }
+  }
+
+  for (const cuota of cronograma) {
+    const cuotaRef = doc(cuotasRef)
+    try {
+      await setDoc(cuotaRef, {
+        ...cuota,
+        comisionistaId,
+        clienteId,
+        prestamoId,
+      })
+      console.log('[DIAG] create cuota', cuotaRef.id, ': OK')
+    } catch (err) {
+      console.error('[DIAG] create cuota FALLO:', err.code, err.message)
+      throw err
+    }
+  }
 }
 
 export async function obtenerPrestamo(prestamoId) {
