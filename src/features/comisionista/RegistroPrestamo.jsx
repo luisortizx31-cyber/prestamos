@@ -17,8 +17,9 @@ import {
   MAX_PRESTAMOS_VIGENTES,
 } from '../../utils/renovacion'
 import { TIPO_CUOTA, TIPO_CUOTA_LABELS, ESTADO_CUOTA, ESTADO_SOLICITUD } from '../../models/prestamo'
+import { parseFechaLocal, formatFechaISO } from '../../utils/fechas'
 
-const HOY = new Date().toISOString().split('T')[0]
+const HOY = formatFechaISO(new Date())
 
 export default function RegistroPrestamo() {
   const { clienteId, prestamoId } = useParams()
@@ -88,9 +89,9 @@ export default function RegistroPrestamo() {
             tasaInteres: String(existente.tasaInteres ?? ''),
             tipoCuota: existente.tipoCuota,
             numeroCuotas: String(existente.totalCuotas ?? ''),
-            fechaInicio: fecha.toISOString().split('T')[0],
+            fechaInicio: formatFechaISO(fecha),
             fechaEspecifica: fechaEspecificaExistente
-              ? fechaEspecificaExistente.toISOString().split('T')[0]
+              ? formatFechaISO(fechaEspecificaExistente)
               : '',
             // calcularSeguro() nunca da 0 de forma natural (siempre cobra
             // algo, aunque sea la tarifa minima) — que el prestamo
@@ -187,8 +188,8 @@ export default function RegistroPrestamo() {
         montoSeguro: montos.montoSeguro,
         tipoCuota: form.tipoCuota,
         numeroCuotas: esFechaEspecifica ? 1 : cuotas,
-        fechaInicio: new Date(form.fechaInicio),
-        fechaEspecifica: form.fechaEspecifica ? new Date(form.fechaEspecifica) : null,
+        fechaInicio: parseFechaLocal(form.fechaInicio),
+        fechaEspecifica: form.fechaEspecifica ? parseFechaLocal(form.fechaEspecifica) : null,
       })
       return { montos, cronograma }
     } catch {
@@ -210,8 +211,8 @@ export default function RegistroPrestamo() {
           tasaInteres: parseFloat(form.tasaInteres),
           tipoCuota: form.tipoCuota,
           numeroCuotas: parseInt(form.numeroCuotas) || 1,
-          fechaInicio: new Date(form.fechaInicio),
-          fechaEspecifica: form.fechaEspecifica ? new Date(form.fechaEspecifica) : null,
+          fechaInicio: parseFechaLocal(form.fechaInicio),
+          fechaEspecifica: form.fechaEspecifica ? parseFechaLocal(form.fechaEspecifica) : null,
           sinSeguro: form.sinSeguro,
         })
         navigate(`/prestamos/${prestamoId}/cuotas`)
@@ -228,8 +229,8 @@ export default function RegistroPrestamo() {
         tasaInteres: parseFloat(form.tasaInteres),
         tipoCuota: form.tipoCuota,
         numeroCuotas: parseInt(form.numeroCuotas) || 1,
-        fechaInicio: new Date(form.fechaInicio),
-        fechaEspecifica: form.fechaEspecifica ? new Date(form.fechaEspecifica) : null,
+        fechaInicio: parseFechaLocal(form.fechaInicio),
+        fechaEspecifica: form.fechaEspecifica ? parseFechaLocal(form.fechaEspecifica) : null,
         prestamoOrigenId: prestamoOrigenId || null,
         montoEntregadoNuevo: prestamoOrigenId ? montoNuevo : null,
         saldoConsolidadoAnterior: prestamoOrigenId ? saldoPendienteAnterior : null,
