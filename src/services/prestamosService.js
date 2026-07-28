@@ -8,8 +8,6 @@ import {
   query,
   where,
   serverTimestamp,
-  setDoc,
-  deleteDoc,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { calcularMontos, generarCronograma } from '../utils/calcularCronograma'
@@ -180,50 +178,36 @@ export async function actualizarPrestamoConCronograma(prestamoId, params) {
 
   const prestamoRef = doc(db, 'prestamos', prestamoId)
   const cuotasRef = collection(prestamoRef, 'cuotas')
-  const cuotasExistentes = await getDocs(cuotasRef)
+  // La Security Rule de "list" para el comisionista depende de
+  // resource.data.comisionistaId - sin un where() que lo iguale, Firestore
+  // rechaza la consulta entera de entrada (no puede verificar que TODOS
+  // los resultados cumplirian la regla sin este filtro explicito), aunque
+  // el comisionista sea realmente el dueño de todas esas cuotas.
+  const cuotasExistentes = await getDocs(query(cuotasRef, where('comisionistaId', '==', comisionistaId)))
 
-  // DIAGNOSTICO TEMPORAL: separado en pasos individuales (en vez de un
-  // solo batch) para ver EXACTAMENTE cual escritura rechaza Firestore.
-  // TODO: revertir a un solo writeBatch una vez identificado el paso.
-  try {
-    await updateDoc(prestamoRef, {
-      tasaInteres,
-      tipoCuota,
-      fechaInicio,
-      ...montos,
-      totalCuotas: cronograma.length,
-    })
-    console.log('[DIAG] update prestamo: OK')
-  } catch (err) {
-    console.error('[DIAG] update prestamo FALLO:', err.code, err.message)
-    throw err
-  }
+  const batch = writeBatch(db)
 
-  for (const d of cuotasExistentes.docs) {
-    try {
-      await deleteDoc(d.ref)
-      console.log('[DIAG] delete cuota', d.id, ': OK')
-    } catch (err) {
-      console.error('[DIAG] delete cuota', d.id, 'FALLO:', err.code, err.message)
-      throw err
-    }
-  }
+  batch.update(prestamoRef, {
+    tasaInteres,
+    tipoCuota,
+    fechaInicio,
+    ...montos,
+    totalCuotas: cronograma.length,
+  })
 
-  for (const cuota of cronograma) {
+  cuotasExistentes.docs.forEach((d) => batch.delete(d.ref))
+
+  cronograma.forEach((cuota) => {
     const cuotaRef = doc(cuotasRef)
-    try {
-      await setDoc(cuotaRef, {
-        ...cuota,
-        comisionistaId,
-        clienteId,
-        prestamoId,
-      })
-      console.log('[DIAG] create cuota', cuotaRef.id, ': OK')
-    } catch (err) {
-      console.error('[DIAG] create cuota FALLO:', err.code, err.message)
-      throw err
-    }
-  }
+    batch.set(cuotaRef, {
+      ...cuota,
+      comisionistaId,
+      clienteId,
+      prestamoId,
+    })
+  })
+
+  await batch.commit()
 }
 
 export async function obtenerPrestamo(prestamoId) {
