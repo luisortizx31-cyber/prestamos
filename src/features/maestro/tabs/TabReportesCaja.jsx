@@ -10,7 +10,7 @@ import {
 } from '../../../services/prestamosService'
 import { BotonExportarExcel } from '../../shared/BotonExportarExcel'
 import { etiquetaCorte } from '../../../services/comisionService'
-import { ESTADO_CUOTA, ESTADO_SOLICITUD, METODO_PAGO } from '../../../models/prestamo'
+import { ESTADO_CUOTA, ESTADO_SOLICITUD, METODO_PAGO, solicitudEstaAprobada } from '../../../models/prestamo'
 
 const MESES_RIESGO = 4
 
@@ -36,7 +36,7 @@ export default function TabReportesCaja() {
     setCargando(true)
     setErrorCarga(null)
     try {
-      const [prestamos, snapCuotasPagadas, snapComisionistas, snapRecalendarizaciones] = await Promise.all([
+      const [prestamosSinFiltrar, snapCuotasPagadas, snapComisionistas, snapRecalendarizaciones] = await Promise.all([
         listarTodosLosPrestamos(),
         getDocs(query(collectionGroup(db, 'cuotas'), where('estado', '==', ESTADO_CUOTA.PAGADO))),
         getDocs(query(collection(db, 'usuarios'), where('role', '==', 'collector'))),
@@ -44,6 +44,12 @@ export default function TabReportesCaja() {
           query(collection(db, 'recalendarizaciones'), where('estado', '==', ESTADO_SOLICITUD.APROBADO))
         ),
       ])
+
+      // Solo las solicitudes aprobadas cuentan para la caja: una que
+      // sigue pendiente o que el Maestro rechazo no desembolso plata de
+      // verdad, asi que no deberia sumar en "Prestado hoy" ni en ningun
+      // otro total (ver solicitudEstaAprobada en models/prestamo.js).
+      const prestamos = prestamosSinFiltrar.filter(solicitudEstaAprobada)
 
       const cuotasPagadas = snapCuotasPagadas.docs.map((d) => d.data())
       // Solo las aprobadas por el Maestro cuentan para la caja — las
