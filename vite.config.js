@@ -9,6 +9,11 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // El registro real lo hace src/main.jsx llamando a registerSW()
+      // del modulo virtual (necesario para que "autoUpdate" revise y
+      // active versiones nuevas solo) - sin esto se duplicaria el
+      // registro del Service Worker.
+      injectRegister: false,
       // injectManifest (en vez de generateSW): necesitamos un service
       // worker propio (src/sw.js) porque tiene que manejar tambien los
       // mensajes en segundo plano de Firebase Cloud Messaging (push de
