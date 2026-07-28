@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { collection, collectionGroup, query, where, getDocs } from 'firebase/firestore'
+import { collection, collectionGroup, query, where, onSnapshot } from 'firebase/firestore'
 import { db } from '../../config/firebase'
 import { logout } from '../../services/authService'
 import { useAuth } from '../../context/AuthContext'
@@ -73,34 +73,31 @@ export default function PanelMaestro() {
     }
   }
 
-  // Se calcula una vez al entrar al panel — mismo patron que el resto
-  // de las tabs (sin listener en tiempo real), asi que si algo cambia
-  // mientras el Maestro esta adentro, se actualiza recien la proxima
-  // vez que entre o recargue.
+  // Escuchado en tiempo real (onSnapshot, no getDocs): una solicitud
+  // nueva o una que se acaba de aprobar/rechazar actualiza el banner de
+  // "Tenes cosas por aprobar" solo, sin que el Maestro tenga que
+  // recargar la pantalla para verlo.
   useEffect(() => {
-    async function cargarPendientes() {
-      try {
-        const [snapSolicitudes, snapCobros, snapRecal] = await Promise.all([
-          getDocs(
-            query(collection(db, 'prestamos'), where('estadoSolicitud', '==', ESTADO_SOLICITUD.PENDIENTE))
-          ),
-          getDocs(
-            query(collectionGroup(db, 'cuotas'), where('estado', '==', ESTADO_CUOTA.POR_VERIFICAR))
-          ),
-          getDocs(
-            query(collection(db, 'recalendarizaciones'), where('estado', '==', ESTADO_SOLICITUD.PENDIENTE))
-          ),
-        ])
-        setPendientes({
-          solicitudes: snapSolicitudes.size,
-          cobros: snapCobros.size,
-          recalendarizaciones: snapRecal.size,
-        })
-      } catch (err) {
-        console.error('[PanelMaestro] Error al cargar pendientes:', err)
-      }
+    const unsubSolicitudes = onSnapshot(
+      query(collection(db, 'prestamos'), where('estadoSolicitud', '==', ESTADO_SOLICITUD.PENDIENTE)),
+      (snap) => setPendientes((p) => ({ ...p, solicitudes: snap.size })),
+      (err) => console.error('[PanelMaestro] Error al escuchar solicitudes pendientes:', err)
+    )
+    const unsubCobros = onSnapshot(
+      query(collectionGroup(db, 'cuotas'), where('estado', '==', ESTADO_CUOTA.POR_VERIFICAR)),
+      (snap) => setPendientes((p) => ({ ...p, cobros: snap.size })),
+      (err) => console.error('[PanelMaestro] Error al escuchar cobros por verificar:', err)
+    )
+    const unsubRecal = onSnapshot(
+      query(collection(db, 'recalendarizaciones'), where('estado', '==', ESTADO_SOLICITUD.PENDIENTE)),
+      (snap) => setPendientes((p) => ({ ...p, recalendarizaciones: snap.size })),
+      (err) => console.error('[PanelMaestro] Error al escuchar recalendarizaciones pendientes:', err)
+    )
+    return () => {
+      unsubSolicitudes()
+      unsubCobros()
+      unsubRecal()
     }
-    cargarPendientes()
   }, [])
 
   const totalPendientes =

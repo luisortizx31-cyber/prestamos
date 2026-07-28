@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { doc, getDoc } from 'firebase/firestore'
+import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore'
 import { db } from '../../../config/firebase'
-import { listarTodosLosPrestamos } from '../../../services/prestamosService'
 import {
   aprobarSolicitudCredito,
   rechazarSolicitudCredito,
@@ -18,51 +17,6 @@ export default function TabSolicitudesCredito() {
   const [rechazando, setRechazando] = useState(null)
   const [motivo, setMotivo] = useState('')
 
-  useEffect(() => {
-    cargar()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  async function cargar() {
-    setCargando(true)
-    setErrorCarga(null)
-    try {
-      const todos = await listarTodosLosPrestamos()
-      const pendientes = todos.filter((p) => p.estadoSolicitud === ESTADO_SOLICITUD.PENDIENTE)
-
-      const clienteIds = [...new Set(pendientes.map((p) => p.clienteId).filter(Boolean))]
-      const comisionistaIds = [...new Set(pendientes.map((p) => p.comisionistaId).filter(Boolean))]
-
-      const [nombresCliente, nombresComisionista] = await Promise.all([
-        cargarNombres('clientes', clienteIds),
-        cargarNombres('usuarios', comisionistaIds),
-      ])
-
-      const conNombres = pendientes
-        .map((p) => ({
-          ...p,
-          clienteNombre: nombresCliente[p.clienteId] || 'Cliente',
-          comisionistaNombre: nombresComisionista[p.comisionistaId] || 'Comisionista',
-        }))
-        .sort((a, b) => {
-          const fa = a.creadoEn?.toDate ? a.creadoEn.toDate() : new Date(a.creadoEn || 0)
-          const fb = b.creadoEn?.toDate ? b.creadoEn.toDate() : new Date(b.creadoEn || 0)
-          return fa - fb
-        })
-
-      setSolicitudes(conNombres)
-    } catch (err) {
-      console.error('[TabSolicitudesCredito]', err)
-      setErrorCarga(
-        err.code === 'permission-denied'
-          ? 'No tienes permiso para ver las solicitudes.'
-          : 'Ocurrio un error al cargar las solicitudes.'
-      )
-    } finally {
-      setCargando(false)
-    }
-  }
-
   async function cargarNombres(coleccion, ids) {
     const mapa = {}
     await Promise.all(
@@ -74,11 +28,64 @@ export default function TabSolicitudesCredito() {
     return mapa
   }
 
+  // En tiempo real (onSnapshot, no una carga unica): una solicitud
+  // nueva aparece sola, y una que el Maestro acaba de aprobar/rechazar
+  // desaparece sola de la lista, sin tener que recargar la pantalla.
+  useEffect(() => {
+    setCargando(true)
+    setErrorCarga(null)
+    const unsub = onSnapshot(
+      collection(db, 'prestamos'),
+      async (snap) => {
+        try {
+          const todos = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+          const pendientes = todos.filter((p) => p.estadoSolicitud === ESTADO_SOLICITUD.PENDIENTE)
+
+          const clienteIds = [...new Set(pendientes.map((p) => p.clienteId).filter(Boolean))]
+          const comisionistaIds = [...new Set(pendientes.map((p) => p.comisionistaId).filter(Boolean))]
+
+          const [nombresCliente, nombresComisionista] = await Promise.all([
+            cargarNombres('clientes', clienteIds),
+            cargarNombres('usuarios', comisionistaIds),
+          ])
+
+          const conNombres = pendientes
+            .map((p) => ({
+              ...p,
+              clienteNombre: nombresCliente[p.clienteId] || 'Cliente',
+              comisionistaNombre: nombresComisionista[p.comisionistaId] || 'Comisionista',
+            }))
+            .sort((a, b) => {
+              const fa = a.creadoEn?.toDate ? a.creadoEn.toDate() : new Date(a.creadoEn || 0)
+              const fb = b.creadoEn?.toDate ? b.creadoEn.toDate() : new Date(b.creadoEn || 0)
+              return fa - fb
+            })
+
+          setSolicitudes(conNombres)
+        } catch (err) {
+          console.error('[TabSolicitudesCredito]', err)
+          setErrorCarga('Ocurrio un error al cargar las solicitudes.')
+        } finally {
+          setCargando(false)
+        }
+      },
+      (err) => {
+        console.error('[TabSolicitudesCredito]', err)
+        setErrorCarga(
+          err.code === 'permission-denied'
+            ? 'No tienes permiso para ver las solicitudes.'
+            : 'Ocurrio un error al cargar las solicitudes.'
+        )
+        setCargando(false)
+      }
+    )
+    return () => unsub()
+  }, [])
+
   async function handleAprobar(solicitud) {
     setProcesando(true)
     try {
       await aprobarSolicitudCredito(solicitud.id)
-      await cargar()
     } catch (err) {
       console.error('[TabSolicitudesCredito] aprobar', err)
     } finally {
@@ -92,7 +99,6 @@ export default function TabSolicitudesCredito() {
       await rechazarSolicitudCredito(solicitud.id, motivo.trim())
       setRechazando(null)
       setMotivo('')
-      await cargar()
     } catch (err) {
       console.error('[TabSolicitudesCredito] rechazar', err)
     } finally {
