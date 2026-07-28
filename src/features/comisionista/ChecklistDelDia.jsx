@@ -97,7 +97,7 @@ export default function ChecklistDelDia() {
     return Math.max(0, Math.round((inicioHoy - fecha) / (1000 * 60 * 60 * 24)))
   }
   function baldeMora(dias) {
-    if (dias <= 0) return null
+    if (dias <= 0) return 'hoy'
     if (dias <= 7) return 'semana'
     if (dias <= 30) return 'mes'
     return 'mas_mes'
@@ -135,8 +135,9 @@ export default function ChecklistDelDia() {
           <div className="mb-4 flex flex-wrap gap-2">
             {[
               { valor: 'todos', label: 'Todos' },
+              { valor: 'hoy', label: 'Vencen hoy' },
               { valor: 'semana', label: 'Vencidas ~7 dias' },
-              { valor: 'mes', label: 'Vencidas ~1 mes' },
+              { valor: 'mes', label: 'Vencidas +8 dias' },
               { valor: 'mas_mes', label: 'Vencidas +1 mes' },
             ].map(({ valor, label }) => (
               <button
