@@ -12,6 +12,9 @@ export default function ChecklistDelDia() {
   const [items, setItems] = useState([])
   const [cargando, setCargando] = useState(true)
   const [cuotaActiva, setCuotaActiva] = useState(null)
+  // Filtro por antigüedad de la mora, para no tener que leer cuota por
+  // cuota cuales son las mas urgentes entre muchas vencidas.
+  const [filtroMora, setFiltroMora] = useState('todos') // 'todos' | 'semana' | 'mes' | 'mas_mes'
 
   useEffect(() => {
     if (!usuarioAuth) return
@@ -84,6 +87,25 @@ export default function ChecklistDelDia() {
   const totalACobrar = items.reduce((acc, c) => acc + (c.monto || 0), 0)
   const hoy = new Date()
 
+  // Dias de atraso de cada cuota (0 si vence hoy, sin haber vencido
+  // todavia) y en que balde de antigüedad cae, para el filtro de abajo.
+  function diasVencido(cuota) {
+    const fecha = cuota.fechaVencimiento?.toDate
+      ? cuota.fechaVencimiento.toDate()
+      : new Date(cuota.fechaVencimiento)
+    const inicioHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
+    return Math.max(0, Math.round((inicioHoy - fecha) / (1000 * 60 * 60 * 24)))
+  }
+  function baldeMora(dias) {
+    if (dias <= 0) return null
+    if (dias <= 7) return 'semana'
+    if (dias <= 30) return 'mes'
+    return 'mas_mes'
+  }
+
+  const itemsFiltrados =
+    filtroMora === 'todos' ? items : items.filter((c) => baldeMora(diasVencido(c)) === filtroMora)
+
   return (
     <div className="min-h-screen bg-paper pb-10">
       <header className="flex items-center gap-3 border-b border-line bg-surface px-4 py-4">
@@ -109,6 +131,30 @@ export default function ChecklistDelDia() {
           </div>
         )}
 
+        {!cargando && items.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-2">
+            {[
+              { valor: 'todos', label: 'Todos' },
+              { valor: 'semana', label: 'Vencidas ~7 dias' },
+              { valor: 'mes', label: 'Vencidas ~1 mes' },
+              { valor: 'mas_mes', label: 'Vencidas +1 mes' },
+            ].map(({ valor, label }) => (
+              <button
+                key={valor}
+                type="button"
+                onClick={() => setFiltroMora(valor)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  filtroMora === valor
+                    ? 'border-brand bg-brand text-white'
+                    : 'border-line bg-surface text-ink-soft'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {cargando && <p className="text-center text-ink-soft py-10">Cargando...</p>}
 
         {!cargando && items.length === 0 && (
@@ -119,12 +165,16 @@ export default function ChecklistDelDia() {
           </div>
         )}
 
+        {!cargando && items.length > 0 && itemsFiltrados.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-ink-soft">
+            No hay ninguna cuota en ese rango de atraso.
+          </div>
+        )}
+
         <ul className="space-y-3">
-          {items.map((cuota) => {
-            const fecha = cuota.fechaVencimiento?.toDate
-              ? cuota.fechaVencimiento.toDate()
-              : new Date(cuota.fechaVencimiento)
-            const vencida = fecha < new Date(hoy.setHours(0, 0, 0, 0))
+          {itemsFiltrados.map((cuota) => {
+            const dias = diasVencido(cuota)
+            const vencida = dias > 0
 
             return (
               <li
@@ -137,7 +187,8 @@ export default function ChecklistDelDia() {
                   <Link to={`/clientes/${cuota.clienteId}`} className="min-w-0">
                     <p className="font-medium text-ink truncate">{cuota.clienteNombre}</p>
                     <p className={`text-xs ${vencida ? 'text-danger font-semibold' : 'text-ink-soft'}`}>
-                      Cuota {cuota.numero} · {vencida ? 'VENCIDA' : 'Vence hoy'}
+                      Cuota {cuota.numero} ·{' '}
+                      {vencida ? `VENCIDA hace ${dias} dia${dias !== 1 ? 's' : ''}` : 'Vence hoy'}
                     </p>
                   </Link>
                   <div className="flex items-center gap-3 shrink-0">
