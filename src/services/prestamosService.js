@@ -241,6 +241,18 @@ export async function listarPrestamosPorCliente(clienteId) {
 }
 
 /**
+ * Cuenta cuantos prestamos de un cliente YA ganaron comision (ya se
+ * pagaron por completo) - se usa para saber en que escalon de la regla
+ * de comision por cliente cae el prestamo que se esta por completar
+ * ahora mismo (ver calcularComisionComisionista en comisionService.js).
+ * Sumarle 1 da el numero de ESTE prestamo para ese cliente.
+ */
+export async function contarPrestamosCompletadosDeCliente(clienteId) {
+  const prestamos = await listarPrestamosPorCliente(clienteId)
+  return prestamos.filter((p) => p.comisionGanada > 0).length
+}
+
+/**
  * Lista TODOS los préstamos del sistema (uso exclusivo del Maestro:
  * Tab "Reportes y Caja" y Tab "Solicitudes de Crédito"). La regla de
  * seguridad de /prestamos ya autoriza esto vía esMaestro().

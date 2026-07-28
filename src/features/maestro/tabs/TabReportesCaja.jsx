@@ -413,7 +413,7 @@ export default function TabReportesCaja() {
         <section>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-ink">
-              Pago a comisionistas (5% al completar deuda)
+              Pago a comisionistas (5%/4%/3% segun prestamos del cliente)
             </h2>
             <BotonExportarExcel
               nombreArchivo="comisiones_comisionistas"

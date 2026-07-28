@@ -3,6 +3,7 @@ import { db } from '../config/firebase'
 import { ESTADO_CUOTA } from '../models/prestamo'
 import { recalcularEstadoCliente } from './clienteEstadoService'
 import { calcularComisionComisionista, calcularCortePago } from './comisionService'
+import { contarPrestamosCompletadosDeCliente } from './prestamosService'
 
 /**
  * Aprueba UNA cuota que estaba "por_verificar": confirma que el dinero
@@ -12,7 +13,8 @@ import { calcularComisionComisionista, calcularCortePago } from './comisionServi
  *
  * Si esta aprobacion COMPLETA el prestamo (todas las cuotas pagadas),
  * tambien se contabiliza automaticamente la comision del comisionista
- * (5% del capital) y el corte de pago correspondiente.
+ * (un porcentaje del capital segun cuantos prestamos de este cliente ya
+ * completo antes, ver comisionService.js) y el corte de pago correspondiente.
  */
 export async function aprobarCuota({ prestamoId, cuotaId, clienteId }) {
   const cuotaRef = doc(db, 'prestamos', prestamoId, 'cuotas', cuotaId)
@@ -39,12 +41,16 @@ export async function aprobarCuota({ prestamoId, cuotaId, clienteId }) {
     const actualizacionPrestamo = { cuotasPagadas: increment(1) }
 
     // Comision del comisionista: solo se contabiliza una vez, justo
-    // cuando la ULTIMA cuota queda aprobada.
+    // cuando la ULTIMA cuota queda aprobada. El porcentaje depende de
+    // cuantos prestamos de ESTE cliente ya se completaron antes (ver
+    // calcularComisionComisionista en comisionService.js).
     if (seCompleta && !datosPrestamo.comisionGanada) {
+      const numeroPrestamoDelCliente = (await contarPrestamosCompletadosDeCliente(clienteId)) + 1
       const ahora = new Date()
       const corte = calcularCortePago(ahora)
       actualizacionPrestamo.comisionGanada = calcularComisionComisionista(
-        datosPrestamo.montoPrestado || 0
+        datosPrestamo.montoPrestado || 0,
+        numeroPrestamoDelCliente
       )
       actualizacionPrestamo.fechaCompletado = serverTimestamp()
       actualizacionPrestamo.cortePago = corte.corte
@@ -155,26 +161,44 @@ export async function aprobarCuotasEnLote(items) {
   })
 
   // Comision: revisamos cada prestamo unico una sola vez (no por cada
-  // cuota), y solo si esta aprobacion en lote lo deja 100% completo.
-  prestamoIdsUnicos.forEach((prestamoId) => {
+  // cuota), y solo si esta aprobacion en lote lo deja 100% completo. El
+  // porcentaje depende de cuantos prestamos de ESE cliente ya se
+  // completaron antes (ver comisionService.js) - se cuenta antes del
+  // lote y se va incrementando a mano por si dos prestamos del MISMO
+  // cliente se completan juntos en esta misma aprobacion.
+  const prestamosQueCompletan = prestamoIdsUnicos.filter((prestamoId) => {
     const datos = datosPrestamos[prestamoId]
-    if (!datos || datos.comisionGanada) return
-
+    if (!datos || datos.comisionGanada) return false
     const cuotasPagadasAntes = datos.cuotasPagadas || 0
     const totalCuotas = datos.totalCuotas || 0
     const cuotasEnEsteLote = cuotasPorPrestamoEnLote[prestamoId] || 0
-    const seCompleta = totalCuotas > 0 && cuotasPagadasAntes + cuotasEnEsteLote === totalCuotas
+    return totalCuotas > 0 && cuotasPagadasAntes + cuotasEnEsteLote === totalCuotas
+  })
 
-    if (seCompleta) {
-      const ahora = new Date()
-      const corte = calcularCortePago(ahora)
-      batch.update(doc(db, 'prestamos', prestamoId), {
-        comisionGanada: calcularComisionComisionista(datos.montoPrestado || 0),
-        fechaCompletado: serverTimestamp(),
-        cortePago: corte.corte,
-        fechaPagoComision: corte.fechaPago,
-      })
-    }
+  const clientesQueCompletan = [
+    ...new Set(prestamosQueCompletan.map((id) => datosPrestamos[id].clienteId)),
+  ]
+  const contadoresPorCliente = {}
+  await Promise.all(
+    clientesQueCompletan.map(async (clienteId) => {
+      contadoresPorCliente[clienteId] = await contarPrestamosCompletadosDeCliente(clienteId)
+    })
+  )
+
+  prestamosQueCompletan.forEach((prestamoId) => {
+    const datos = datosPrestamos[prestamoId]
+    contadoresPorCliente[datos.clienteId] += 1
+    const ahora = new Date()
+    const corte = calcularCortePago(ahora)
+    batch.update(doc(db, 'prestamos', prestamoId), {
+      comisionGanada: calcularComisionComisionista(
+        datos.montoPrestado || 0,
+        contadoresPorCliente[datos.clienteId]
+      ),
+      fechaCompletado: serverTimestamp(),
+      cortePago: corte.corte,
+      fechaPagoComision: corte.fechaPago,
+    })
   })
 
   await batch.commit()
