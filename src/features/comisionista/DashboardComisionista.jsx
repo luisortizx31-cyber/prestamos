@@ -7,7 +7,12 @@ import { logout } from '../../services/authService'
 import { EtiquetaEstadoCliente } from '../shared/EtiquetaEstadoCliente'
 import { construirLinkWhatsapp } from '../../utils/whatsapp'
 import { WhatsappIcon } from '../shared/WhatsappIcon'
-import { solicitudEstaAprobada, ESTADO_CLIENTE_STYLES, ESTADO_SOLICITUD } from '../../models/prestamo'
+import {
+  solicitudEstaAprobada,
+  ESTADO_CLIENTE_LABELS,
+  ESTADO_CLIENTE_STYLES,
+  ESTADO_SOLICITUD,
+} from '../../models/prestamo'
 
 export default function DashboardComisionista() {
   const { usuarioAuth, perfil } = useAuth()
@@ -24,6 +29,9 @@ export default function DashboardComisionista() {
   // pendiente (mas alla del punto parpadeante) se vuelve dificil - esta
   // pestaña filtra la lista a solo esos.
   const [vista, setVista] = useState('todos') // 'todos' | 'pendientes'
+  // Filtro por estado de pago (buen pagador / con retrasos / moroso),
+  // combinable con la busqueda y con cualquiera de las dos pestañas.
+  const [filtroEstado, setFiltroEstado] = useState('')
   // Clientes con al menos una solicitud pendiente de aprobacion del
   // Maestro — se les marca un punto parpadeante en la lista para que el
   // comisionista note de un vistazo cuales tiene que revisar, sin entrar
@@ -148,8 +156,19 @@ export default function DashboardComisionista() {
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar por nombre o DNI…"
-              className="mb-4 w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-ink-soft/60 outline-none focus-visible:border-brand"
+              className="mb-3 w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-ink-soft/60 outline-none focus-visible:border-brand"
             />
+
+            <select
+              value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value)}
+              className="mb-4 w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-ink outline-none focus-visible:border-brand"
+            >
+              <option value="">Todos los estados</option>
+              {Object.entries(ESTADO_CLIENTE_LABELS).map(([valor, label]) => (
+                <option key={valor} value={valor}>{label}</option>
+              ))}
+            </select>
           </>
         )}
 
@@ -175,22 +194,26 @@ export default function DashboardComisionista() {
           }
 
           const clientesFiltrados = clientesDeLaVista.filter((c) => {
+            if (filtroEstado && c.estado !== filtroEstado) return false
             const q = busqueda.trim().toLowerCase()
             if (!q) return true
             return c.nombre?.toLowerCase().includes(q) || c.dni?.includes(q)
           })
 
-          if (!cargando && busqueda && clientesFiltrados.length === 0) {
+          if (!cargando && (busqueda || filtroEstado) && clientesFiltrados.length === 0) {
             return (
               <div className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-ink-soft">
-                No se encontro ningun cliente con "{busqueda}".
+                {busqueda
+                  ? `No se encontro ningun cliente con "${busqueda}".`
+                  : `Ningun cliente esta como "${ESTADO_CLIENTE_LABELS[filtroEstado]}".`}
               </div>
             )
           }
 
           // La pestaña "Pendientes" siempre muestra todos - plegarlos detras
           // de un acordeon iria justo en contra del motivo de esta pestaña.
-          const hayMasDeTres = vista === 'todos' && !busqueda.trim() && clientesFiltrados.length > 3
+          const hayMasDeTres =
+            vista === 'todos' && !busqueda.trim() && !filtroEstado && clientesFiltrados.length > 3
           const clientesVisibles =
             hayMasDeTres && !expandido ? clientesFiltrados.slice(0, 3) : clientesFiltrados
 
