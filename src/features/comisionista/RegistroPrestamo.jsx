@@ -215,7 +215,11 @@ export default function RegistroPrestamo() {
           fechaEspecifica: form.fechaEspecifica ? parseFechaLocal(form.fechaEspecifica) : null,
           sinSeguro: form.sinSeguro,
         })
-        navigate(`/prestamos/${prestamoId}/cuotas`)
+        // A la pantalla principal del comisionista, no a las cuotas: el
+        // prestamo editado sigue "pendiente" (no se puede cobrar nada
+        // todavia), asi que no hay nada util que hacer en esa pantalla
+        // justo despues de guardar.
+        navigate('/', { replace: true })
         return
       }
 
