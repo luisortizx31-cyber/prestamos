@@ -48,7 +48,7 @@ export default function DetalleCliente() {
   const [verFotosDni, setVerFotosDni] = useState(false)
   // Separa los prestamos ya cancelados (pagados por completo) de los
   // demas, para que no se mezclen en la misma lista.
-  const [vistaPrestamos, setVistaPrestamos] = useState('activos') // 'activos' | 'cancelados'
+  const [vistaPrestamos, setVistaPrestamos] = useState('activos') // 'activos' | 'cancelados' | 'rechazados'
 
   useEffect(() => {
     async function cargar() {
@@ -145,9 +145,16 @@ export default function DetalleCliente() {
       pagadas === total
     )
   }
+  const esRechazado = (p) => p.estadoSolicitud === ESTADO_SOLICITUD.RECHAZADO
   const prestamosCancelados = prestamosOrdenados.filter(esCancelado)
-  const prestamosActivos = prestamosOrdenados.filter((p) => !esCancelado(p))
-  const prestamosVisibles = vistaPrestamos === 'cancelados' ? prestamosCancelados : prestamosActivos
+  const prestamosRechazados = prestamosOrdenados.filter(esRechazado)
+  const prestamosActivos = prestamosOrdenados.filter((p) => !esCancelado(p) && !esRechazado(p))
+  const prestamosVisibles =
+    vistaPrestamos === 'cancelados'
+      ? prestamosCancelados
+      : vistaPrestamos === 'rechazados'
+      ? prestamosRechazados
+      : prestamosActivos
 
   return (
     <div className="min-h-screen bg-paper pb-16">
@@ -305,6 +312,15 @@ export default function DetalleCliente() {
             >
               Cancelados ({prestamosCancelados.length})
             </button>
+            <button
+              type="button"
+              onClick={() => setVistaPrestamos('rechazados')}
+              className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+                vistaPrestamos === 'rechazados' ? 'bg-brand text-white' : 'text-ink-soft'
+              }`}
+            >
+              Rechazados ({prestamosRechazados.length})
+            </button>
           </div>
         )}
 
@@ -312,6 +328,8 @@ export default function DetalleCliente() {
           <div className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-ink-soft">
             {vistaPrestamos === 'cancelados'
               ? 'Todavia no tiene ningun prestamo cancelado.'
+              : vistaPrestamos === 'rechazados'
+              ? 'Todavia no tiene ningun prestamo rechazado.'
               : 'No tiene prestamos activos en este momento.'}
           </div>
         )}
