@@ -20,6 +20,10 @@ export default function DashboardComisionista() {
   // acordeon (no aplica mientras hay una busqueda activa: ahi se
   // quieren ver TODOS los resultados que matchean).
   const [expandido, setExpandido] = useState(false)
+  // Con muchos clientes, encontrar a mano cuales tienen una solicitud
+  // pendiente (mas alla del punto parpadeante) se vuelve dificil - esta
+  // pestaña filtra la lista a solo esos.
+  const [vista, setVista] = useState('todos') // 'todos' | 'pendientes'
   // Clientes con al menos una solicitud pendiente de aprobacion del
   // Maestro — se les marca un punto parpadeante en la lista para que el
   // comisionista note de un vistazo cuales tiene que revisar, sin entrar
@@ -117,13 +121,36 @@ export default function DashboardComisionista() {
         </div>
 
         {!cargando && clientes.length > 0 && (
-          <input
-            type="search"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre o DNI…"
-            className="mb-4 w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-ink-soft/60 outline-none focus-visible:border-brand"
-          />
+          <>
+            <div className="mb-3 flex rounded-xl border border-line bg-surface p-1">
+              <button
+                type="button"
+                onClick={() => setVista('todos')}
+                className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+                  vista === 'todos' ? 'bg-brand text-white' : 'text-ink-soft'
+                }`}
+              >
+                Todos ({clientes.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setVista('pendientes')}
+                className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+                  vista === 'pendientes' ? 'bg-brand text-white' : 'text-ink-soft'
+                }`}
+              >
+                Pendientes ({clientesConPendiente.size})
+              </button>
+            </div>
+
+            <input
+              type="search"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por nombre o DNI…"
+              className="mb-4 w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-ink-soft/60 outline-none focus-visible:border-brand"
+            />
+          </>
         )}
 
         {cargando && <p className="text-ink-soft">Cargando...</p>}
@@ -135,21 +162,35 @@ export default function DashboardComisionista() {
           </div>
         )}
 
-        {!cargando && busqueda && clientes.filter(c =>
-          c.nombre?.toLowerCase().includes(busqueda.toLowerCase()) || c.dni?.includes(busqueda)
-        ).length === 0 && (
-          <div className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-ink-soft">
-            No se encontro ningun cliente con "{busqueda}".
-          </div>
-        )}
-
         {(() => {
-          const clientesFiltrados = clientes.filter((c) => {
+          const clientesDeLaVista =
+            vista === 'pendientes' ? clientes.filter((c) => clientesConPendiente.has(c.id)) : clientes
+
+          if (!cargando && vista === 'pendientes' && clientesDeLaVista.length === 0) {
+            return (
+              <div className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-ink-soft">
+                No tenes ninguna solicitud pendiente de aprobacion.
+              </div>
+            )
+          }
+
+          const clientesFiltrados = clientesDeLaVista.filter((c) => {
             const q = busqueda.trim().toLowerCase()
             if (!q) return true
             return c.nombre?.toLowerCase().includes(q) || c.dni?.includes(q)
           })
-          const hayMasDeTres = !busqueda.trim() && clientesFiltrados.length > 3
+
+          if (!cargando && busqueda && clientesFiltrados.length === 0) {
+            return (
+              <div className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-ink-soft">
+                No se encontro ningun cliente con "{busqueda}".
+              </div>
+            )
+          }
+
+          // La pestaña "Pendientes" siempre muestra todos - plegarlos detras
+          // de un acordeon iria justo en contra del motivo de esta pestaña.
+          const hayMasDeTres = vista === 'todos' && !busqueda.trim() && clientesFiltrados.length > 3
           const clientesVisibles =
             hayMasDeTres && !expandido ? clientesFiltrados.slice(0, 3) : clientesFiltrados
 
