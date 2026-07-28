@@ -128,11 +128,25 @@ service cloud.firestore {
       // condiciones ya no se pueden tocar (ver RegistroPrestamo.jsx,
       // modo edicion, y BotonEditarPrestamo.jsx que oculta el boton
       // fuera de ese estado).
+      //
+      // La SEGUNDA rama es para renovaciones (marcarPrestamoRenovado en
+      // prestamosService.js): el prestamo que se renueva esta siempre
+      // "aprobado" (la renovacion se ofrece sobre prestamos activos, ver
+      // debeOfrecerRenovacion), asi que sin esto un comisionista nunca
+      // podia marcar su propio prestamo viejo como renovado — el
+      // prestamo nuevo se creaba igual (eso es un create, no un update)
+      // pero este paso fallaba siempre, y el error generico llevaba a
+      // reintentar y acumular prestamos duplicados. Se limita con
+      // affectedKeys() a que la escritura SOLO toque esos 3 campos, para
+      // no abrirle la puerta a cambiar monto/tasa/cronograma por esta via.
       allow update: if esMaestro() ||
         (esComisionista() &&
          resource.data.comisionistaId == request.auth.uid &&
-         'estadoSolicitud' in resource.data &&
-         resource.data.estadoSolicitud == 'pendiente');
+         (
+           ('estadoSolicitud' in resource.data && resource.data.estadoSolicitud == 'pendiente') ||
+           request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['renovado', 'renovadoEn', 'prestamoRenovacionId'])
+         ));
       allow delete: if esMaestro();
 
       // /prestamos/{prestamoId}/cuotas
