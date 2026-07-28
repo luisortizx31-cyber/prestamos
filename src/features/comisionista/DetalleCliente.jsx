@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore'
 import { db } from '../../config/firebase'
 import { listarPrestamosPorCliente } from '../../services/prestamosService'
@@ -11,6 +11,8 @@ import { ModalCobro } from '../shared/ModalCobro'
 import { ModalRecalendarizar } from '../shared/ModalRecalendarizar'
 import { ConfirmarClaveMaestro } from '../shared/ConfirmarClaveMaestro'
 import { WhatsappIcon } from '../shared/WhatsappIcon'
+import RegistroPrestamo from './RegistroPrestamo'
+import EditarCliente from './EditarCliente'
 import { useAuth } from '../../context/AuthContext'
 import { useRole } from '../../hooks/useRole'
 import {
@@ -49,33 +51,40 @@ export default function DetalleCliente() {
   // Separa los prestamos ya cancelados (pagados por completo) de los
   // demas, para que no se mezclen en la misma lista.
   const [vistaPrestamos, setVistaPrestamos] = useState('activos') // 'activos' | 'renovados' | 'cancelados' | 'rechazados'
+  // Formularios de prestamo (nuevo/editar/renovar) y de editar cliente:
+  // se abren como modal encima de esta misma pantalla, y al guardar se
+  // vuelve a cargar() para reflejar el cambio sin navegar a ningun lado.
+  const [modalPrestamo, setModalPrestamo] = useState(null) // null | { modo, prestamoId? , prestamoOrigenId? }
+  const [modalEditarCliente, setModalEditarCliente] = useState(false)
+
+  async function cargar() {
+    try {
+      const [snapCliente, listaPrestamos] = await Promise.all([
+        getDoc(doc(db, 'clientes', clienteId)),
+        listarPrestamosPorCliente(clienteId),
+      ])
+      if (snapCliente.exists()) {
+        setCliente({ id: snapCliente.id, ...snapCliente.data() })
+      }
+      setPrestamos(listaPrestamos)
+
+      const nuevoEstado = await recalcularEstadoCliente(
+        clienteId,
+        esMaestro ? undefined : usuarioAuth?.uid
+      )
+      if (nuevoEstado) {
+        setCliente((prev) => (prev ? { ...prev, estado: nuevoEstado } : prev))
+      }
+    } catch (err) {
+      console.error('[DetalleCliente]', err)
+    } finally {
+      setCargando(false)
+    }
+  }
 
   useEffect(() => {
-    async function cargar() {
-      try {
-        const [snapCliente, listaPrestamos] = await Promise.all([
-          getDoc(doc(db, 'clientes', clienteId)),
-          listarPrestamosPorCliente(clienteId),
-        ])
-        if (snapCliente.exists()) {
-          setCliente({ id: snapCliente.id, ...snapCliente.data() })
-        }
-        setPrestamos(listaPrestamos)
-
-        const nuevoEstado = await recalcularEstadoCliente(
-          clienteId,
-          esMaestro ? undefined : usuarioAuth?.uid
-        )
-        if (nuevoEstado) {
-          setCliente((prev) => (prev ? { ...prev, estado: nuevoEstado } : prev))
-        }
-      } catch (err) {
-        console.error('[DetalleCliente]', err)
-      } finally {
-        setCargando(false)
-      }
-    }
     cargar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clienteId, esMaestro, usuarioAuth])
 
   // Auto-expande un préstamo vigente cuando carga la data (si hay dos,
@@ -187,12 +196,13 @@ export default function DetalleCliente() {
               Datos personales
             </h2>
             {(esPropietario || esMaestro) && (
-              <Link
-                to={`/clientes/${clienteId}/editar`}
+              <button
+                type="button"
+                onClick={() => setModalEditarCliente(true)}
                 className="text-xs font-medium text-brand"
               >
                 ✏️ Editar
-              </Link>
+              </button>
             )}
           </div>
           <div className="space-y-2 text-sm">
@@ -270,12 +280,13 @@ export default function DetalleCliente() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-ink">Prestamos ({prestamos.length})</h2>
           {esPropietario && puedeAgregarNuevo && (
-            <Link
-              to={`/clientes/${clienteId}/prestamos/nuevo`}
+            <button
+              type="button"
+              onClick={() => setModalPrestamo({ modo: 'nuevo' })}
               className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white"
             >
               + Nuevo prestamo
-            </Link>
+            </button>
           )}
         </div>
 
@@ -453,9 +464,20 @@ export default function DetalleCliente() {
                   {(puedeEditar || puedeRenovar) && (
                     <div className="border-t border-line px-4 pb-4">
                       {puedeEditar && (
-                        <BotonEditarPrestamo prestamo={p} clienteId={clienteId} esMaestro={esMaestro} />
+                        <BotonEditarPrestamo
+                          prestamo={p}
+                          esMaestro={esMaestro}
+                          onEditar={(prestamoId) => setModalPrestamo({ modo: 'editar', prestamoId })}
+                        />
                       )}
-                      {puedeRenovar && <BotonOfrecerRenovacion prestamo={p} clienteId={clienteId} />}
+                      {puedeRenovar && (
+                        <BotonOfrecerRenovacion
+                          prestamo={p}
+                          onRenovar={(prestamoOrigenId) =>
+                            setModalPrestamo({ modo: 'renovar', prestamoOrigenId })
+                          }
+                        />
+                      )}
                     </div>
                   )}
                 </div>
@@ -501,6 +523,30 @@ export default function DetalleCliente() {
             setConfirmacionPendiente(null)
           }}
           onCancelar={() => setConfirmacionPendiente(null)}
+        />
+      )}
+
+      {modalPrestamo && (
+        <RegistroPrestamo
+          clienteId={clienteId}
+          prestamoId={modalPrestamo.modo === 'editar' ? modalPrestamo.prestamoId : undefined}
+          prestamoOrigenId={modalPrestamo.modo === 'renovar' ? modalPrestamo.prestamoOrigenId : undefined}
+          onCerrar={() => setModalPrestamo(null)}
+          onGuardado={() => {
+            setModalPrestamo(null)
+            cargar()
+          }}
+        />
+      )}
+
+      {modalEditarCliente && (
+        <EditarCliente
+          clienteId={clienteId}
+          onCerrar={() => setModalEditarCliente(false)}
+          onGuardado={() => {
+            setModalEditarCliente(false)
+            cargar()
+          }}
         />
       )}
     </div>

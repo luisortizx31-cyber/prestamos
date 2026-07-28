@@ -7,6 +7,7 @@ import { logout } from '../../services/authService'
 import { EtiquetaEstadoCliente } from '../shared/EtiquetaEstadoCliente'
 import { construirLinkWhatsapp } from '../../utils/whatsapp'
 import { WhatsappIcon } from '../shared/WhatsappIcon'
+import RegistroCliente from './RegistroCliente'
 import {
   solicitudEstaAprobada,
   ESTADO_CLIENTE_LABELS,
@@ -37,8 +38,12 @@ export default function DashboardComisionista() {
   // comisionista note de un vistazo cuales tiene que revisar, sin entrar
   // uno por uno.
   const [clientesConPendiente, setClientesConPendiente] = useState(new Set())
+  // "+ Nuevo cliente" abre este formulario como modal encima de esta
+  // misma pantalla, y al guardar se vuelve a cargar() la lista sin
+  // navegar a ningun lado.
+  const [modalNuevoCliente, setModalNuevoCliente] = useState(false)
 
-  useEffect(() => {
+  function cargar() {
     if (!usuarioAuth) return
     Promise.all([
       listarClientesPorComisionista(usuarioAuth.uid),
@@ -68,6 +73,11 @@ export default function DashboardComisionista() {
       })
       .catch(console.error)
       .finally(() => setCargando(false))
+  }
+
+  useEffect(() => {
+    cargar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuarioAuth])
 
   return (
@@ -116,12 +126,13 @@ export default function DashboardComisionista() {
 
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm text-ink-soft">{clientes.length} cliente{clientes.length !== 1 ? 's' : ''}</p>
-          <Link
-            to="/clientes/nuevo"
+          <button
+            type="button"
+            onClick={() => setModalNuevoCliente(true)}
             className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white"
           >
             + Nuevo cliente
-          </Link>
+          </button>
         </div>
 
         {!cargando && clientes.length > 0 && (
@@ -280,6 +291,16 @@ export default function DashboardComisionista() {
           )
         })()}
       </main>
+
+      {modalNuevoCliente && (
+        <RegistroCliente
+          onCerrar={() => setModalNuevoCliente(false)}
+          onGuardado={() => {
+            setModalNuevoCliente(false)
+            cargar()
+          }}
+        />
+      )}
     </div>
   )
 }

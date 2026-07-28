@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useRole } from '../../hooks/useRole'
 import { ModalCobro } from '../shared/ModalCobro'
 import { BotonOfrecerRenovacion } from '../shared/BotonOfrecerRenovacion'
+import RegistroPrestamo from './RegistroPrestamo'
 import { ESTADO_CUOTA, METODO_PAGO, TIPO_CUOTA_LABELS, ESTADO_SOLICITUD, solicitudEstaAprobada } from '../../models/prestamo'
 
 export default function ChecklistCuotas() {
@@ -13,6 +14,7 @@ export default function ChecklistCuotas() {
   const navigate = useNavigate()
   const location = useLocation()
   const { usuarioAuth } = useAuth()
+  const [modalRenovar, setModalRenovar] = useState(false)
 
   // Si llegamos aca recien creando/renovando un prestamo (ver
   // RegistroPrestamo.jsx), "atras" no debe volver al formulario ya
@@ -170,7 +172,7 @@ export default function ChecklistCuotas() {
         </div>
 
         {prestamo && !esMaestro && (
-          <BotonOfrecerRenovacion prestamo={prestamo} clienteId={prestamo.clienteId} />
+          <BotonOfrecerRenovacion prestamo={prestamo} onRenovar={() => setModalRenovar(true)} />
         )}
       </header>
 
@@ -308,6 +310,15 @@ export default function ChecklistCuotas() {
           comisionistaId={usuarioAuth?.uid}
           clienteId={prestamo.clienteId}
           onCerrar={() => setCuotaActiva(null)}
+        />
+      )}
+
+      {modalRenovar && prestamo && (
+        <RegistroPrestamo
+          clienteId={prestamo.clienteId}
+          prestamoOrigenId={prestamo.id}
+          onCerrar={() => setModalRenovar(false)}
+          onGuardado={() => navigate(`/clientes/${prestamo.clienteId}`)}
         />
       )}
     </div>

@@ -5,14 +5,10 @@ import { ROLES } from '../models/roles'
 
 import LoginPage from '../features/auth/LoginPage'
 import PanelMaestro from '../features/maestro/PanelMaestro'
-import RegistroComisionista from '../features/maestro/RegistroComisionista'
 import ConciliacionCaja from '../features/maestro/ConciliacionCaja'
 import DetalleComisionista from '../features/maestro/DetalleComisionista'
 import DashboardComisionista from '../features/comisionista/DashboardComisionista'
-import RegistroCliente from '../features/comisionista/RegistroCliente'
-import EditarCliente from '../features/comisionista/EditarCliente'
 import DetalleCliente from '../features/comisionista/DetalleCliente'
-import RegistroPrestamo from '../features/comisionista/RegistroPrestamo'
 import ChecklistCuotas from '../features/comisionista/ChecklistCuotas'
 import ChecklistDelDia from '../features/comisionista/ChecklistDelDia'
 import CambiarPin from '../features/comisionista/CambiarPin'
@@ -35,15 +31,6 @@ export function AppRouter() {
 
         {/* Rutas del Maestro */}
         <Route
-          path="/comisionistas/nuevo"
-          element={
-            <ProtectedRoute allowedRoles={[ROLES.MASTER]}>
-              <RegistroComisionista />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
           path="/conciliacion"
           element={
             <ProtectedRoute allowedRoles={[ROLES.MASTER]}>
@@ -63,46 +50,10 @@ export function AppRouter() {
 
         {/* Rutas del Comisionista */}
         <Route
-          path="/clientes/nuevo"
-          element={
-            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR, ROLES.MASTER]}>
-              <RegistroCliente />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
           path="/clientes/:clienteId"
           element={
             <ProtectedRoute allowedRoles={[ROLES.COLLECTOR, ROLES.MASTER]}>
               <DetalleCliente />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/clientes/:clienteId/editar"
-          element={
-            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR, ROLES.MASTER]}>
-              <EditarCliente />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/clientes/:clienteId/prestamos/nuevo"
-          element={
-            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR, ROLES.MASTER]}>
-              <RegistroPrestamo />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/clientes/:clienteId/prestamos/:prestamoId/editar"
-          element={
-            <ProtectedRoute allowedRoles={[ROLES.COLLECTOR, ROLES.MASTER]}>
-              <RegistroPrestamo />
             </ProtectedRoute>
           }
         />

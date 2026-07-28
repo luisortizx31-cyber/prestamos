@@ -6,6 +6,7 @@ import { EtiquetaEstadoCliente } from '../../shared/EtiquetaEstadoCliente'
 import { construirLinkWhatsapp } from '../../../utils/whatsapp'
 import { ESTADO_CLIENTE_STYLES } from '../../../models/prestamo'
 import { WhatsappIcon } from '../../shared/WhatsappIcon'
+import RegistroCliente from '../../comisionista/RegistroCliente'
 
 /**
  * El Maestro puede actuar como su propio comisionista: registrar
@@ -21,6 +22,7 @@ export default function TabMiCartera() {
   const [busqueda, setBusqueda] = useState('')
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
+  const [modalNuevoCliente, setModalNuevoCliente] = useState(false)
 
   async function cargar() {
     if (!usuarioAuth?.uid) return
@@ -57,12 +59,13 @@ export default function TabMiCartera() {
     <div>
       <div className="mb-4 flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-ink">Mi cartera propia ({clientes.length})</h2>
-        <Link
-          to="/clientes/nuevo"
+        <button
+          type="button"
+          onClick={() => setModalNuevoCliente(true)}
           className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white"
         >
           + Nuevo cliente
-        </Link>
+        </button>
       </div>
 
       <p className="mb-4 text-xs text-ink-soft">
@@ -126,6 +129,16 @@ export default function TabMiCartera() {
           </li>
         ))}
       </ul>
+
+      {modalNuevoCliente && (
+        <RegistroCliente
+          onCerrar={() => setModalNuevoCliente(false)}
+          onGuardado={() => {
+            setModalNuevoCliente(false)
+            cargar()
+          }}
+        />
+      )}
     </div>
   )
 }

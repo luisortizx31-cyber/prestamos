@@ -1,11 +1,18 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { crearComisionista, buscarComisionistaPorDni } from '../../services/comisionistasService'
 import { validarDni, validarPin } from '../../utils/authVirtual'
 import { consultarDni } from '../../services/dniLookupService'
 
-export default function RegistroComisionista() {
-  const navigate = useNavigate()
+/**
+ * Modal para registrar un comisionista nuevo. Se abre encima de la
+ * pantalla que lo invoca (TabComisionistas.jsx) y siempre vuelve a esa
+ * misma pantalla al guardar (onGuardado) o cancelar (onCerrar).
+ *
+ * @param {object} props
+ * @param {Function} props.onCerrar
+ * @param {Function} props.onGuardado
+ */
+export default function RegistroComisionista({ onCerrar, onGuardado }) {
   const [form, setForm] = useState({ nombre: '', dni: '', pin: '', telefono: '', direccion: '' })
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState(null)
@@ -76,7 +83,7 @@ export default function RegistroComisionista() {
         return
       }
       await crearComisionista(form)
-      navigate('/')
+      onGuardado()
     } catch (err) {
       console.error('[RegistroComisionista]', err)
       setError(err.message || 'No se pudo crear el comisionista.')
@@ -86,11 +93,14 @@ export default function RegistroComisionista() {
   }
 
   return (
-    <div className="min-h-screen bg-paper px-4 py-6">
-      <div className="mx-auto max-w-sm">
-        <h1 className="mb-4 text-lg font-semibold text-ink">Nuevo comisionista</h1>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/50 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-t-3xl bg-paper shadow-xl sm:rounded-3xl">
+        <div className="flex items-center justify-between border-b border-line bg-surface px-5 py-4">
+          <h1 className="text-lg font-semibold text-ink">Nuevo comisionista</h1>
+          <button onClick={onCerrar} className="text-2xl leading-none text-ink-soft px-1">×</button>
+        </div>
 
-        <form onSubmit={handleSubmit} className="rounded-2xl border border-line bg-surface p-5">
+        <form onSubmit={handleSubmit} className="p-5">
           <div className="mb-1">
             <label className="block text-sm font-medium text-ink mb-1">DNI</label>
             <input

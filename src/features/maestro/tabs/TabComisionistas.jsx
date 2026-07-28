@@ -5,12 +5,14 @@ import { listarPrestamosPorComisionista } from '../../../services/prestamosServi
 import { BotonExportarExcel } from '../../shared/BotonExportarExcel'
 import { construirLinkWhatsapp } from '../../../utils/whatsapp'
 import { WhatsappIcon } from '../../shared/WhatsappIcon'
+import RegistroComisionista from '../RegistroComisionista'
 
 export default function TabComisionistas() {
   const [filas, setFilas] = useState([])
   const [busqueda, setBusqueda] = useState('')
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
+  const [modalNuevoComisionista, setModalNuevoComisionista] = useState(false)
 
   async function cargarDatos() {
     setCargando(true)
@@ -68,12 +70,13 @@ export default function TabComisionistas() {
           ]}
           filas={filas}
         />
-        <Link
-          to="/comisionistas/nuevo"
+        <button
+          type="button"
+          onClick={() => setModalNuevoComisionista(true)}
           className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white"
         >
           + Nuevo comisionista
-        </Link>
+        </button>
       </div>
 
       <div className="mb-4 flex items-center justify-between rounded-2xl bg-brand p-4 text-white">
@@ -150,6 +153,16 @@ export default function TabComisionistas() {
           </li>
         ))}
       </ul>
+
+      {modalNuevoComisionista && (
+        <RegistroComisionista
+          onCerrar={() => setModalNuevoComisionista(false)}
+          onGuardado={() => {
+            setModalNuevoComisionista(false)
+            cargarDatos()
+          }}
+        />
+      )}
     </div>
   )
 }

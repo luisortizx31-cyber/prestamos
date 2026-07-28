@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { crearCliente, buscarClientePorDni, actualizarFotosDni } from '../../services/clientesService'
 import { consultarDni } from '../../services/dniLookupService'
@@ -7,8 +6,17 @@ import { comprimirImagen } from '../../utils/imageCompress'
 import { subirFotoDni } from '../../services/storageService'
 import { Campo, CampoFoto } from '../shared/CamposCliente'
 
-export default function RegistroCliente() {
-  const navigate = useNavigate()
+/**
+ * Modal para registrar un cliente nuevo. Se abre encima de la pantalla
+ * que lo invoca (DashboardComisionista.jsx o TabMiCartera.jsx) y
+ * siempre vuelve a esa misma pantalla al guardar (onGuardado) o
+ * cancelar (onCerrar) - no navega a ninguna ruta.
+ *
+ * @param {object} props
+ * @param {Function} props.onCerrar
+ * @param {Function} props.onGuardado
+ */
+export default function RegistroCliente({ onCerrar, onGuardado }) {
   const { usuarioAuth } = useAuth()
   const [form, setForm] = useState({ nombre: '', dni: '', telefono: '', direccion: '' })
   const [enviando, setEnviando] = useState(false)
@@ -118,7 +126,7 @@ export default function RegistroCliente() {
         }
       }
 
-      navigate('/')
+      onGuardado()
     } catch (err) {
       console.error('[RegistroCliente] Error al guardar:', err)
       setError('No se pudo registrar el cliente.')
@@ -128,11 +136,14 @@ export default function RegistroCliente() {
   }
 
   return (
-    <div className="min-h-screen bg-paper px-4 py-6">
-      <div className="mx-auto max-w-sm">
-        <h1 className="mb-4 text-lg font-semibold text-ink">Nuevo cliente</h1>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/50 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-t-3xl bg-paper shadow-xl sm:rounded-3xl">
+        <div className="flex items-center justify-between border-b border-line bg-surface px-5 py-4">
+          <h1 className="text-lg font-semibold text-ink">Nuevo cliente</h1>
+          <button onClick={onCerrar} className="text-2xl leading-none text-ink-soft px-1">×</button>
+        </div>
 
-        <form onSubmit={handleSubmit} className="rounded-2xl border border-line bg-surface p-5">
+        <form onSubmit={handleSubmit} className="p-5">
           <div className="mb-1">
             <label className="block text-sm font-medium text-ink">DNI</label>
             <input
@@ -221,4 +232,3 @@ export default function RegistroCliente() {
     </div>
   )
 }
-

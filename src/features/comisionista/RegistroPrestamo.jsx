@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useRole } from '../../hooks/useRole'
 import {
@@ -21,19 +20,28 @@ import { parseFechaLocal, formatFechaISO } from '../../utils/fechas'
 
 const HOY = formatFechaISO(new Date())
 
-export default function RegistroPrestamo() {
-  const { clienteId, prestamoId } = useParams()
+/**
+ * Modal para registrar, editar o renovar un prestamo. Se abre encima de
+ * DetalleCliente.jsx y siempre vuelve a esa misma pantalla al guardar
+ * (onGuardado) o cancelar (onCerrar) - no navega a ninguna otra ruta.
+ *
+ * @param {object} props
+ * @param {string} props.clienteId
+ * @param {string} [props.prestamoId]         si viene, es edicion
+ * @param {string} [props.prestamoOrigenId]   si viene, es una renovacion
+ * @param {Function} props.onCerrar
+ * @param {Function} props.onGuardado
+ */
+export default function RegistroPrestamo({ clienteId, prestamoId, prestamoOrigenId: prestamoOrigenIdInicial, onCerrar, onGuardado }) {
   const esEdicion = Boolean(prestamoId)
-  const [searchParams] = useSearchParams()
-  const prestamoOrigenId = searchParams.get('renovarDe')
+  const [prestamoOrigenId, setPrestamoOrigenId] = useState(prestamoOrigenIdInicial || null)
   const { usuarioAuth } = useAuth()
   const { esMaestro } = useRole()
-  const navigate = useNavigate()
 
   const [prestamoOrigen, setPrestamoOrigen] = useState(null)
   const [saldoPendienteAnterior, setSaldoPendienteAnterior] = useState(0)
   const [validando, setValidando] = useState(true)
-  const [bloqueo, setBloqueo] = useState(null) // null | { motivo, prestamo }
+  const [bloqueo, setBloqueo] = useState(null) // null | { motivo, prestamos }
 
   // Regla de negocio: un cliente solo puede tener UN prestamo vigente.
   // - Si pide un prestamo "nuevo" (sin renovarDe) y ya tiene uno vigente,
@@ -139,7 +147,7 @@ export default function RegistroPrestamo() {
     }
     validar()
     return () => { activo = false }
-  }, [prestamoOrigenId, clienteId, esEdicion, prestamoId, esMaestro])
+  }, [prestamoOrigenId, clienteId, esEdicion, prestamoId, esMaestro, usuarioAuth])
 
   // Valores por defecto del negocio: la gran mayoria de prestamos son
   // semanales, 20% de interes, 4 cuotas — asi el comisionista solo
@@ -215,11 +223,7 @@ export default function RegistroPrestamo() {
           fechaEspecifica: form.fechaEspecifica ? parseFechaLocal(form.fechaEspecifica) : null,
           sinSeguro: form.sinSeguro,
         })
-        // A la pantalla principal del comisionista, no a las cuotas: el
-        // prestamo editado sigue "pendiente" (no se puede cobrar nada
-        // todavia), asi que no hay nada util que hacer en esa pantalla
-        // justo despues de guardar.
-        navigate('/', { replace: true })
+        onGuardado()
         return
       }
 
@@ -249,13 +253,7 @@ export default function RegistroPrestamo() {
         await marcarPrestamoRenovado(prestamoOrigenId, nuevoPrestamoId)
       }
 
-      // replace + volverAlPanel: si tocan "atras" desde la pantalla de
-      // cuotas, no tiene sentido volver a este formulario ya vacio (el
-      // prestamo ya quedo creado) — que vuelvan directo a su panel.
-      navigate(`/prestamos/${nuevoPrestamoId}/cuotas`, {
-        replace: true,
-        state: { volverAlPanel: true },
-      })
+      onGuardado()
     } catch (err) {
       console.error('[RegistroPrestamo]', err)
       setError('No se pudo registrar el prestamo. Intenta de nuevo.')
@@ -270,288 +268,281 @@ export default function RegistroPrestamo() {
   // nuevo + deuda anterior fusionada), no solo sobre lo que se ingresa.
   const monto = montoNuevoIngresado + saldoPendienteAnterior
 
-  if (validando) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-ink-soft">
-        Verificando...
-      </div>
-    )
-  }
-
-  if (bloqueo) {
-    return (
-      <PantallaBloqueo
-        bloqueo={bloqueo}
-        clienteId={clienteId}
-        onVolver={() => navigate(-1)}
-      />
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-paper pb-16">
-      <header className="flex items-center gap-3 border-b border-line bg-surface px-4 py-4">
-        <button
-          onClick={() => navigate(-1)}
-          className="text-ink-soft text-xl leading-none"
-        >
-          ←
-        </button>
-        <div>
-          <p className="font-mono text-xs tracking-widest text-ink-soft uppercase">
-            {esEdicion ? 'Editar solicitud' : prestamoOrigenId ? 'Renovacion' : 'Nuevo prestamo'}
-          </p>
-          <h1 className="text-lg font-semibold text-ink">
-            {esEdicion ? 'Editar prestamo' : prestamoOrigenId ? 'Renovar prestamo' : 'Registrar prestamo'}
-          </h1>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-lg px-4 py-6 space-y-5">
-        {prestamoOrigen && (
-          <div className="rounded-2xl border-2 border-gold bg-gold-soft p-4">
-            <p className="text-sm font-semibold text-gold mb-1">⭐ Renovando prestamo anterior</p>
-            <div className="text-sm text-gold/90 space-y-0.5">
-              <p>
-                Cuotas pagadas: {prestamoOrigen.cuotasPagadas || 0} de {prestamoOrigen.totalCuotas || 0}
-              </p>
-              <p className="money">
-                Deuda pendiente que se suma: S/ {saldoPendienteAnterior.toFixed(2)}
-              </p>
-            </div>
-            <p className="text-xs text-gold/70 mt-2">
-              Esa deuda se sumara al dinero nuevo que ingreses abajo: se
-              convertiran en un solo prestamo. El anterior quedara marcado
-              como renovado y cerrado (ya no se podra cobrar de el).
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/50 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-paper shadow-xl sm:rounded-3xl">
+        <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-surface px-4 py-4">
+          <button onClick={onCerrar} className="shrink-0 text-xl leading-none text-ink-soft">
+            ←
+          </button>
+          <div>
+            <p className="font-mono text-xs tracking-widest text-ink-soft uppercase">
+              {esEdicion ? 'Editar solicitud' : prestamoOrigenId ? 'Renovacion' : 'Nuevo prestamo'}
             </p>
+            <h1 className="text-lg font-semibold text-ink">
+              {esEdicion ? 'Editar prestamo' : prestamoOrigenId ? 'Renovar prestamo' : 'Registrar prestamo'}
+            </h1>
           </div>
-        )}
+        </header>
 
-        {/* Formulario */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <section className="rounded-2xl border-2 border-line bg-surface p-5 space-y-4 shadow-sm">
-            <h2 className="flex items-center gap-2 text-sm font-bold text-ink uppercase tracking-wide">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-soft text-base">
-                📋
-              </span>
-              Condiciones del prestamo
-            </h2>
-
-            <Campo label={prestamoOrigenId ? 'Dinero nuevo a entregar (S/)' : 'Monto prestado (S/)'}>
-              <input
-                type="number"
-                min="1"
-                step="0.01"
-                required
-                value={form.montoPrestado}
-                onChange={(e) => set('montoPrestado', e.target.value)}
-                placeholder="0.00"
-                className={inputClass}
-              />
-            </Campo>
-
-            {prestamoOrigenId && montoNuevoIngresado > 0 && (
-              <p className="text-xs text-ink-soft -mt-2">
-                Capital total del nuevo prestamo:{' '}
-                <span className="money font-medium text-ink">S/ {monto.toFixed(2)}</span>
-                {' '}(S/ {montoNuevoIngresado.toFixed(2)} nuevo + S/ {saldoPendienteAnterior.toFixed(2)} de deuda anterior)
-              </p>
-            )}
-
-            {monto > 0 && (
-              <div className="-mt-2 space-y-1.5">
-                <label className="flex items-center gap-2 text-xs text-ink">
-                  <input
-                    type="checkbox"
-                    checked={form.sinSeguro}
-                    onChange={(e) => set('sinSeguro', e.target.checked)}
-                    className="h-4 w-4 accent-brand"
-                  />
-                  Sin seguro para este prestamo
-                </label>
-                <p className="text-xs text-ink-soft">
-                  {form.sinSeguro ? (
-                    'Sin seguro (S/ 0.00)'
-                  ) : (
-                    <>
-                      Seguro automatico:{' '}
-                      <span className="font-medium text-ink">{descripcionSeguro(monto)}</span>
-                      {' '}(prestamos menores a S/ 330 pagan 3%; S/ 330 a mas, tarifa fija de S/ 10)
-                    </>
-                  )}
+        {validando ? (
+          <div className="flex items-center justify-center py-16 text-ink-soft">
+            Verificando...
+          </div>
+        ) : bloqueo ? (
+          <PantallaBloqueo
+            bloqueo={bloqueo}
+            onVolver={onCerrar}
+            onElegirRenovar={(id) => setPrestamoOrigenId(id)}
+          />
+        ) : (
+          <div className="px-4 py-6 space-y-5">
+            {prestamoOrigen && (
+              <div className="rounded-2xl border-2 border-gold bg-gold-soft p-4">
+                <p className="text-sm font-semibold text-gold mb-1">⭐ Renovando prestamo anterior</p>
+                <div className="text-sm text-gold/90 space-y-0.5">
+                  <p>
+                    Cuotas pagadas: {prestamoOrigen.cuotasPagadas || 0} de {prestamoOrigen.totalCuotas || 0}
+                  </p>
+                  <p className="money">
+                    Deuda pendiente que se suma: S/ {saldoPendienteAnterior.toFixed(2)}
+                  </p>
+                </div>
+                <p className="text-xs text-gold/70 mt-2">
+                  Esa deuda se sumara al dinero nuevo que ingreses abajo: se
+                  convertiran en un solo prestamo. El anterior quedara marcado
+                  como renovado y cerrado (ya no se podra cobrar de el).
                 </p>
               </div>
             )}
 
-            <Campo label="Tasa de interes %">
-              <input
-                type="number"
-                min="0"
-                step="0.1"
-                required
-                value={form.tasaInteres}
-                onChange={(e) => set('tasaInteres', e.target.value)}
-                placeholder="10"
-                className={inputClass}
-              />
-            </Campo>
-
-            <Campo label="Tipo de cuota">
-              <select
-                value={form.tipoCuota}
-                onChange={(e) => set('tipoCuota', e.target.value)}
-                className={inputClass}
-              >
-                {Object.entries(TIPO_CUOTA_LABELS).map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
-              </select>
-            </Campo>
-
-            {!esFechaEspecifica && (
-              <Campo label="Numero de cuotas">
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  required
-                  value={form.numeroCuotas}
-                  onChange={(e) => set('numeroCuotas', e.target.value)}
-                  placeholder="4"
-                  className={inputClass}
-                />
-              </Campo>
-            )}
-
-            <Campo label="Fecha de inicio">
-              <input
-                type="date"
-                required
-                value={form.fechaInicio}
-                onChange={(e) => set('fechaInicio', e.target.value)}
-                className={inputClass}
-              />
-            </Campo>
-
-            {esFechaEspecifica && (
-              <Campo label="Fecha de pago unico">
-                <input
-                  type="date"
-                  required
-                  value={form.fechaEspecifica}
-                  onChange={(e) => set('fechaEspecifica', e.target.value)}
-                  className={inputClass}
-                />
-              </Campo>
-            )}
-          </section>
-
-          {/* Preview en vivo */}
-          {preview?.montos && (
-            <section className="rounded-2xl border-2 border-brand bg-brand-soft p-5 space-y-3 shadow-sm">
-              <h2 className="flex items-center gap-2 text-sm font-bold text-brand uppercase tracking-wide">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/60 text-base">
-                  💰
-                </span>
-                Resumen del prestamo
-              </h2>
-              <div className="space-y-2 text-sm">
-                <FilaResumen
-                  label="Capital prestado"
-                  valor={preview.montos.montoPrestado}
-                  nota={prestamoOrigenId ? 'incluye deuda anterior fusionada' : undefined}
-                />
-                <FilaResumen
-                  label={`Interes (${form.tasaInteres}%)`}
-                  valor={preview.montos.montoInteres}
-                />
-                <FilaResumen
-                  label={form.sinSeguro ? 'Seguro (desactivado)' : `Seguro (${descripcionSeguro(monto)})`}
-                  valor={preview.montos.montoSeguro}
-                  nota={form.sinSeguro ? undefined : 'incluido en la 1ra cuota'}
-                />
-                <div className="rounded-xl border-2 border-brand bg-surface px-3 py-2.5 mt-1">
-                  <FilaResumen
-                    label="Total a cobrar"
-                    valor={preview.montos.montoTotalAPagar}
-                    grande
-                  />
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Cronograma preview */}
-          {preview?.cronograma && (
-            <section className="rounded-2xl border-2 border-line bg-surface overflow-hidden shadow-sm">
-              <div className="flex items-center gap-2 bg-brand px-5 py-3">
-                <span className="text-base">📅</span>
-                <h2 className="text-sm font-bold text-white uppercase tracking-wide">
-                  Cronograma de pagos
+            {/* Formulario */}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <section className="rounded-2xl border-2 border-line bg-surface p-5 space-y-4 shadow-sm">
+                <h2 className="flex items-center gap-2 text-sm font-bold text-ink uppercase tracking-wide">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-soft text-base">
+                    📋
+                  </span>
+                  Condiciones del prestamo
                 </h2>
-              </div>
-              <ul className="divide-y divide-line">
-                {preview.cronograma.map((c) => (
-                  <li
-                    key={c.numero}
-                    className="flex items-center justify-between px-5 py-3 odd:bg-paper/60"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-bold text-brand">
-                        {c.numero}
-                      </span>
-                      <span className="text-sm text-ink">
-                        {formatFecha(c.fechaVencimiento)}
-                      </span>
-                      {c.numero === 1 && preview.montos.montoSeguro > 0 && (
-                        <span className="rounded-full bg-gold-soft px-2 py-0.5 text-xs font-medium text-gold">
-                          + seguro
-                        </span>
+
+                <Campo label={prestamoOrigenId ? 'Dinero nuevo a entregar (S/)' : 'Monto prestado (S/)'}>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    required
+                    value={form.montoPrestado}
+                    onChange={(e) => set('montoPrestado', e.target.value)}
+                    placeholder="0.00"
+                    className={inputClass}
+                  />
+                </Campo>
+
+                {prestamoOrigenId && montoNuevoIngresado > 0 && (
+                  <p className="text-xs text-ink-soft -mt-2">
+                    Capital total del nuevo prestamo:{' '}
+                    <span className="money font-medium text-ink">S/ {monto.toFixed(2)}</span>
+                    {' '}(S/ {montoNuevoIngresado.toFixed(2)} nuevo + S/ {saldoPendienteAnterior.toFixed(2)} de deuda anterior)
+                  </p>
+                )}
+
+                {monto > 0 && (
+                  <div className="-mt-2 space-y-1.5">
+                    <label className="flex items-center gap-2 text-xs text-ink">
+                      <input
+                        type="checkbox"
+                        checked={form.sinSeguro}
+                        onChange={(e) => set('sinSeguro', e.target.checked)}
+                        className="h-4 w-4 accent-brand"
+                      />
+                      Sin seguro para este prestamo
+                    </label>
+                    <p className="text-xs text-ink-soft">
+                      {form.sinSeguro ? (
+                        'Sin seguro (S/ 0.00)'
+                      ) : (
+                        <>
+                          Seguro automatico:{' '}
+                          <span className="font-medium text-ink">{descripcionSeguro(monto)}</span>
+                          {' '}(prestamos menores a S/ 330 pagan 3%; S/ 330 a mas, tarifa fija de S/ 10)
+                        </>
                       )}
-                    </div>
-                    <span className="money text-sm font-bold text-ink">
-                      S/ {c.monto.toFixed(2)}
+                    </p>
+                  </div>
+                )}
+
+                <Campo label="Tasa de interes %">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    required
+                    value={form.tasaInteres}
+                    onChange={(e) => set('tasaInteres', e.target.value)}
+                    placeholder="10"
+                    className={inputClass}
+                  />
+                </Campo>
+
+                <Campo label="Tipo de cuota">
+                  <select
+                    value={form.tipoCuota}
+                    onChange={(e) => set('tipoCuota', e.target.value)}
+                    className={inputClass}
+                  >
+                    {Object.entries(TIPO_CUOTA_LABELS).map(([val, label]) => (
+                      <option key={val} value={val}>{label}</option>
+                    ))}
+                  </select>
+                </Campo>
+
+                {!esFechaEspecifica && (
+                  <Campo label="Numero de cuotas">
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      required
+                      value={form.numeroCuotas}
+                      onChange={(e) => set('numeroCuotas', e.target.value)}
+                      placeholder="4"
+                      className={inputClass}
+                    />
+                  </Campo>
+                )}
+
+                <Campo label="Fecha de inicio">
+                  <input
+                    type="date"
+                    required
+                    value={form.fechaInicio}
+                    onChange={(e) => set('fechaInicio', e.target.value)}
+                    className={inputClass}
+                  />
+                </Campo>
+
+                {esFechaEspecifica && (
+                  <Campo label="Fecha de pago unico">
+                    <input
+                      type="date"
+                      required
+                      value={form.fechaEspecifica}
+                      onChange={(e) => set('fechaEspecifica', e.target.value)}
+                      className={inputClass}
+                    />
+                  </Campo>
+                )}
+              </section>
+
+              {/* Preview en vivo */}
+              {preview?.montos && (
+                <section className="rounded-2xl border-2 border-brand bg-brand-soft p-5 space-y-3 shadow-sm">
+                  <h2 className="flex items-center gap-2 text-sm font-bold text-brand uppercase tracking-wide">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/60 text-base">
+                      💰
                     </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+                    Resumen del prestamo
+                  </h2>
+                  <div className="space-y-2 text-sm">
+                    <FilaResumen
+                      label="Capital prestado"
+                      valor={preview.montos.montoPrestado}
+                      nota={prestamoOrigenId ? 'incluye deuda anterior fusionada' : undefined}
+                    />
+                    <FilaResumen
+                      label={`Interes (${form.tasaInteres}%)`}
+                      valor={preview.montos.montoInteres}
+                    />
+                    <FilaResumen
+                      label={form.sinSeguro ? 'Seguro (desactivado)' : `Seguro (${descripcionSeguro(monto)})`}
+                      valor={preview.montos.montoSeguro}
+                      nota={form.sinSeguro ? undefined : 'incluido en la 1ra cuota'}
+                    />
+                    <div className="rounded-xl border-2 border-brand bg-surface px-3 py-2.5 mt-1">
+                      <FilaResumen
+                        label="Total a cobrar"
+                        valor={preview.montos.montoTotalAPagar}
+                        grande
+                      />
+                    </div>
+                  </div>
+                </section>
+              )}
 
-          {error && (
-            <p className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger">{error}</p>
-          )}
+              {/* Cronograma preview */}
+              {preview?.cronograma && (
+                <section className="rounded-2xl border-2 border-line bg-surface overflow-hidden shadow-sm">
+                  <div className="flex items-center gap-2 bg-brand px-5 py-3">
+                    <span className="text-base">📅</span>
+                    <h2 className="text-sm font-bold text-white uppercase tracking-wide">
+                      Cronograma de pagos
+                    </h2>
+                  </div>
+                  <ul className="divide-y divide-line">
+                    {preview.cronograma.map((c) => (
+                      <li
+                        key={c.numero}
+                        className="flex items-center justify-between px-5 py-3 odd:bg-paper/60"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-bold text-brand">
+                            {c.numero}
+                          </span>
+                          <span className="text-sm text-ink">
+                            {formatFecha(c.fechaVencimiento)}
+                          </span>
+                          {c.numero === 1 && preview.montos.montoSeguro > 0 && (
+                            <span className="rounded-full bg-gold-soft px-2 py-0.5 text-xs font-medium text-gold">
+                              + seguro
+                            </span>
+                          )}
+                        </div>
+                        <span className="money text-sm font-bold text-ink">
+                          S/ {c.monto.toFixed(2)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
 
-          <p className="text-xs text-ink-soft text-center">
-            {esEdicion
-              ? esMaestro
-                ? 'Los cambios se guardaran de inmediato.'
-                : 'Los cambios se guardaran y la solicitud seguira pendiente de aprobacion del administrador.'
-              : esMaestro
-              ? 'Como sos el administrador, este credito queda aprobado automaticamente — no pasa por "Solicitudes".'
-              : 'El credito quedara "pendiente de aprobacion". No podras cobrar ninguna cuota hasta que el administrador lo apruebe.'}
-          </p>
+              {error && (
+                <p className="rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger">{error}</p>
+              )}
 
-          <button
-            type="submit"
-            disabled={enviando || !preview?.cronograma}
-            className="w-full rounded-xl bg-brand py-3 font-semibold text-white disabled:opacity-50 active:scale-[0.99] transition-transform"
-          >
-            {enviando
-              ? esEdicion ? 'Guardando...' : 'Enviando...'
-              : esEdicion
-              ? 'Guardar cambios'
-              : esMaestro
-              ? 'Registrar prestamo'
-              : 'Enviar solicitud al administrador'}
-          </button>
-        </form>
+              <p className="text-xs text-ink-soft text-center">
+                {esEdicion
+                  ? esMaestro
+                    ? 'Los cambios se guardaran de inmediato.'
+                    : 'Los cambios se guardaran y la solicitud seguira pendiente de aprobacion del administrador.'
+                  : esMaestro
+                  ? 'Como sos el administrador, este credito queda aprobado automaticamente — no pasa por "Solicitudes".'
+                  : 'El credito quedara "pendiente de aprobacion". No podras cobrar ninguna cuota hasta que el administrador lo apruebe.'}
+              </p>
+
+              <button
+                type="submit"
+                disabled={enviando || !preview?.cronograma}
+                className="w-full rounded-xl bg-brand py-3 font-semibold text-white disabled:opacity-50 active:scale-[0.99] transition-transform"
+              >
+                {enviando
+                  ? esEdicion ? 'Guardando...' : 'Enviando...'
+                  : esEdicion
+                  ? 'Guardar cambios'
+                  : esMaestro
+                  ? 'Registrar prestamo'
+                  : 'Enviar solicitud al administrador'}
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
-function PantallaBloqueo({ bloqueo, clienteId, onVolver }) {
+function PantallaBloqueo({ bloqueo, onVolver, onElegirRenovar }) {
   const { motivo, prestamos } = bloqueo
 
   let titulo = 'No se puede registrar este prestamo'
@@ -573,13 +564,13 @@ function PantallaBloqueo({ bloqueo, clienteId, onVolver }) {
       accion = (
         <div className="flex flex-col gap-2">
           {renovables.map((p) => (
-            <Link
+            <button
               key={p.id}
-              to={`/clientes/${clienteId}/prestamos/nuevo?renovarDe=${p.id}`}
+              onClick={() => onElegirRenovar(p.id)}
               className="rounded-xl bg-gold px-5 py-2.5 text-sm font-semibold text-white"
             >
               ⭐ Renovar S/ {(p.montoPrestado || 0).toFixed(2)}
-            </Link>
+            </button>
           ))}
         </div>
       )
@@ -602,10 +593,10 @@ function PantallaBloqueo({ bloqueo, clienteId, onVolver }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+    <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
       <p className="text-lg font-semibold text-ink">{titulo}</p>
       <p className="max-w-sm text-sm text-ink-soft">{detalle}</p>
-      <div className="flex gap-3">
+      <div className="flex flex-wrap items-center justify-center gap-3">
         <button
           onClick={onVolver}
           className="rounded-xl border border-line px-4 py-2 text-sm text-ink-soft"
