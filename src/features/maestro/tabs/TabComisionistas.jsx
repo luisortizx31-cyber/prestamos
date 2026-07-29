@@ -86,7 +86,7 @@ export default function TabComisionistas() {
             {filas.length} comisionista{filas.length !== 1 ? 's' : ''}
           </p>
           <p className="money text-xs text-white/70">
-            S/ {granTotal.toFixed(2)} prestado en total
+            S/ {formatMonto(granTotal)} prestado en total
           </p>
         </div>
         <span className="text-3xl">🧑‍💼</span>
@@ -115,39 +115,52 @@ export default function TabComisionistas() {
         </div>
       )}
 
-      <ul className="space-y-3">
+      <ul className="space-y-2.5">
         {filasFiltradas.map((f) => (
           <li key={f.uid ?? f.id}>
-            <div className="flex items-center justify-between gap-2 rounded-2xl border border-line bg-surface p-4">
-              <Link
-                to={`/comisionistas/${f.uid ?? f.id}`}
-                className="min-w-0 flex-1 active:opacity-70 transition-opacity"
-              >
-                <p className="font-medium text-ink truncate">{f.nombre}</p>
-                <p className="text-sm text-ink-soft">
-                  {f.cantidadPrestamos} préstamo{f.cantidadPrestamos === 1 ? '' : 's'} ·
-                  seguro acumulado{' '}
-                  <span className="money">S/ {f.totalSeguro.toFixed(2)}</span>
-                </p>
-              </Link>
-              <div className="flex items-center gap-2 shrink-0">
-                {construirLinkWhatsapp(f.telefono) && (
-                  <a
-                    href={construirLinkWhatsapp(f.telefono)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Escribir a ${f.nombre} por WhatsApp`}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-success/30 bg-success-soft text-success active:scale-95 transition-transform"
-                  >
-                    <WhatsappIcon className="h-4 w-4" />
-                  </a>
-                )}
-                <Link to={`/comisionistas/${f.uid ?? f.id}`} className="flex items-center gap-2">
-                  <p className="money text-lg font-semibold text-ink">
-                    S/ {f.totalPrestado.toFixed(2)}
-                  </p>
-                  <span className="text-ink-soft text-lg">›</span>
+            <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm transition-shadow hover:shadow-md">
+              <div className="flex items-center gap-3">
+                <Link
+                  to={`/comisionistas/${f.uid ?? f.id}`}
+                  className="flex min-w-0 flex-1 items-center gap-3 active:opacity-70 transition-opacity"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-bold text-brand">
+                    {iniciales(f.nombre)}
+                  </div>
+                  <p className="min-w-0 flex-1 truncate font-semibold text-ink">{f.nombre}</p>
                 </Link>
+                <Link
+                  to={`/comisionistas/${f.uid ?? f.id}`}
+                  className="shrink-0 text-lg text-ink-soft/60"
+                >
+                  ›
+                </Link>
+              </div>
+              <div className="mt-2.5 flex items-center justify-between gap-2 pl-[52px]">
+                <p className="text-xs text-ink-soft">
+                  {f.cantidadPrestamos} préstamo{f.cantidadPrestamos === 1 ? '' : 's'}
+                  <span className="mx-1 text-line">·</span>
+                  seguro <span className="money">S/ {formatMonto(f.totalSeguro)}</span>
+                </p>
+                <div className="flex items-center gap-2 shrink-0">
+                  {construirLinkWhatsapp(f.telefono) && (
+                    <a
+                      href={construirLinkWhatsapp(f.telefono)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Escribir a ${f.nombre} por WhatsApp`}
+                      className="flex h-7 w-7 items-center justify-center rounded-full border border-success/30 bg-success-soft text-success active:scale-95 transition-transform"
+                    >
+                      <WhatsappIcon className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                  <Link
+                    to={`/comisionistas/${f.uid ?? f.id}`}
+                    className="money text-sm font-bold text-ink whitespace-nowrap"
+                  >
+                    S/ {formatMonto(f.totalPrestado)}
+                  </Link>
+                </div>
               </div>
             </div>
           </li>
@@ -165,4 +178,15 @@ export default function TabComisionistas() {
       )}
     </div>
   )
+}
+
+function iniciales(nombre) {
+  if (!nombre) return '?'
+  const palabras = nombre.trim().split(/\s+/)
+  const primeras = palabras.length > 1 ? [palabras[0], palabras[1]] : [palabras[0]]
+  return primeras.map((p) => p[0]).join('').toUpperCase()
+}
+
+function formatMonto(monto) {
+  return (monto || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
