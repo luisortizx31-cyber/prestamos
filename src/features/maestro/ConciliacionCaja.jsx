@@ -364,12 +364,13 @@ export default function ConciliacionCaja() {
                           </span>
                         </div>
                         <p className="text-xs text-ink-soft mt-0.5">
-                          Cuota {item.numero} ·{' '}
+                          Cuota {item.numero} · vence {formatFecha(item.fechaVencimiento)}
+                          {' · '}
                           {item.metodoPago === METODO_PAGO.YAPE
                             ? `Yape: ${item.codigoYape}`
                             : 'Efectivo'}
                           {' · '}
-                          {formatFecha(item.fechaPago)}
+                          registrado {formatFecha(item.fechaPago)}
                         </p>
                         {esAbonoParcial && (
                           <p className="text-xs text-brand mt-0.5">
