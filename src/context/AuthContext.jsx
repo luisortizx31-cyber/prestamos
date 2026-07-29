@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { suscribirseAEstadoAuth, obtenerPerfilUsuario } from '../services/authService'
+import { suscribirseAEstadoAuth, obtenerPerfilUsuario, logout } from '../services/authService'
+import { registrarActividad, haPasadoElTiempoDeInactividad } from '../utils/inactividad'
 
 const AuthContext = createContext(null)
 
@@ -36,6 +37,49 @@ export function AuthProvider({ children }) {
 
     return unsubscribe
   }, [])
+
+  // Cierre de sesion automatico despues de 30 min de inactividad (ver
+  // src/utils/inactividad.js). El ultimo momento de actividad se guarda
+  // en localStorage, no en memoria, para poder detectar tambien el caso
+  // de "cerre la app/PWA y la volvi a abrir mas tarde" — en celulares el
+  // setInterval de aqui abajo se suspende mientras la app esta en
+  // segundo plano, asi que la revision en visibilitychange (al volver a
+  // primer plano) es la que realmente atrapa ese caso.
+  useEffect(() => {
+    if (!usuarioAuth) return
+
+    if (haPasadoElTiempoDeInactividad()) {
+      logout()
+      return
+    }
+    registrarActividad()
+
+    const eventosDeActividad = ['mousedown', 'keydown', 'touchstart', 'scroll']
+    const marcarActividad = () => registrarActividad()
+    eventosDeActividad.forEach((ev) =>
+      window.addEventListener(ev, marcarActividad, { passive: true })
+    )
+
+    function revisarAlVolverAPrimerPlano() {
+      if (document.visibilityState !== 'visible') return
+      if (haPasadoElTiempoDeInactividad()) {
+        logout()
+      } else {
+        registrarActividad()
+      }
+    }
+    document.addEventListener('visibilitychange', revisarAlVolverAPrimerPlano)
+
+    const intervalo = setInterval(() => {
+      if (haPasadoElTiempoDeInactividad()) logout()
+    }, 60 * 1000)
+
+    return () => {
+      eventosDeActividad.forEach((ev) => window.removeEventListener(ev, marcarActividad))
+      document.removeEventListener('visibilitychange', revisarAlVolverAPrimerPlano)
+      clearInterval(intervalo)
+    }
+  }, [usuarioAuth])
 
   const value = {
     usuarioAuth,

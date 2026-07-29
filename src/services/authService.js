@@ -9,6 +9,7 @@ import {
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '../config/firebase'
 import { construirCorreoVirtual, validarDni, validarPin } from '../utils/authVirtual'
+import { registrarActividad, limpiarActividad } from '../utils/inactividad'
 
 /**
  * Login legacy con email/contraseña real. Se mantiene por si en algun
@@ -35,11 +36,13 @@ export async function loginConDni(dni, pin) {
   }
   const correoVirtual = construirCorreoVirtual(dni)
   const credential = await signInWithEmailAndPassword(auth, correoVirtual, pin)
+  registrarActividad()
   return credential.user
 }
 
 export async function logout() {
   await signOut(auth)
+  limpiarActividad()
 }
 
 /**
