@@ -25,3 +25,6 @@ dist-ssr
 
 .vercel
 .env*
+
+# Config local de Claude Code (permisos de comandos), no es parte del proyecto
+.claude/
