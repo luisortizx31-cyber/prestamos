@@ -26,6 +26,19 @@ export async function existeCodigoYape(codigoYape) {
   return snap.exists()
 }
 
+const TOLERANCIA_DECIMAL = 0.01
+
+// Un cliente puede abonar menos del total (cobro parcial), pero nunca
+// mas del saldo que realmente le queda a la cuota — eso ya se valida en
+// la UI (ModalCobro), pero se repite aqui porque es la ultima garantia
+// real antes de escribir en Firestore.
+function validarMontoAbono(datosCuota, monto) {
+  const saldoPendiente = (datosCuota.monto || 0) - (datosCuota.montoPagado || 0)
+  if (!(monto > 0) || monto > saldoPendiente + TOLERANCIA_DECIMAL) {
+    throw new Error(`El monto debe ser mayor a 0 y no puede superar el saldo pendiente (S/ ${saldoPendiente.toFixed(2)}).`)
+  }
+}
+
 /**
  * IMPORTANTE - Flujo en dos pasos (conciliacion de caja):
  * Estas funciones las usa el COMISIONISTA desde la calle. NUNCA marcan
@@ -39,6 +52,11 @@ export async function existeCodigoYape(codigoYape) {
 /**
  * Pago con Yape: atomico, con validacion anti-duplicado. Deja la cuota
  * en estado "por_verificar", a la espera de que el Maestro la apruebe.
+ *
+ * "monto" es lo que el cliente pago AHORA, que puede ser menor al saldo
+ * de la cuota (abono parcial) — ver validarMontoAbono() y
+ * conciliacionService.aprobarCuota(), que es quien decide si con esto
+ * la cuota queda completa o vuelve a "pendiente" con el resto por cobrar.
  */
 export async function registrarPagoConValidacionYape({
   codigoYape,
@@ -61,6 +79,7 @@ export async function registrarPagoConValidacionYape({
     if (cuotaSnap.data().estado !== ESTADO_CUOTA.PENDIENTE) {
       throw new Error('Esta cuota ya tiene un cobro registrado.')
     }
+    validarMontoAbono(cuotaSnap.data(), monto)
 
     transaction.set(yapeRef, {
       codigoYape: codigo,
@@ -75,6 +94,7 @@ export async function registrarPagoConValidacionYape({
       estado: ESTADO_CUOTA.POR_VERIFICAR,
       metodoPago: METODO_PAGO.YAPE,
       codigoYape: codigo,
+      montoAbono: monto,
       fechaPago: serverTimestamp(),
     })
   })
@@ -111,12 +131,14 @@ export async function registrarPagoEfectivo({
     if (cuotaSnap.data().estado !== ESTADO_CUOTA.PENDIENTE) {
       throw new Error('Esta cuota ya tiene un cobro registrado.')
     }
+    validarMontoAbono(cuotaSnap.data(), monto)
 
     transaction.update(cuotaRef, {
       estado: ESTADO_CUOTA.POR_VERIFICAR,
       metodoPago: METODO_PAGO.EFECTIVO,
       codigoYape: null,
       montoEfectivo: monto,
+      montoAbono: monto,
       comisionistaId,
       fechaPago: serverTimestamp(),
     })

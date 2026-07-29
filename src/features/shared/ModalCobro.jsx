@@ -9,19 +9,31 @@ import {
 
 /**
  * @param {object} props
- * @param {object} props.cuota          { id, numero, monto, fechaVencimiento, ... }
+ * @param {object} props.cuota          { id, numero, monto, montoPagado, fechaVencimiento, ... }
  * @param {string} props.prestamoId
  * @param {string} props.comisionistaId
  * @param {string} props.clienteId      necesario para recalcular el estado del cliente tras el pago
  * @param {Function} props.onCerrar     se llama al cancelar O al pagar con exito
  */
 export function ModalCobro({ cuota, prestamoId, comisionistaId, clienteId, onCerrar }) {
+  // Saldo real que le queda a la cuota: si ya tuvo un abono parcial
+  // antes (cuota.montoPagado), solo falta la diferencia — el cliente
+  // puede pagar eso de a poco, no necesariamente todo junto.
+  const montoPendiente = Math.round((cuota.monto - (cuota.montoPagado || 0)) * 100) / 100
+
   const [metodo, setMetodo] = useState(null)
   const [codigo, setCodigo] = useState('')
+  const [montoTexto, setMontoTexto] = useState(String(montoPendiente))
   const [verificando, setVerificando] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [advertencia, setAdvertencia] = useState(null)
   const [error, setError] = useState(null)
+
+  const montoIngresado = Number(montoTexto)
+  const montoValido =
+    montoTexto.trim() !== '' && montoIngresado > 0 && montoIngresado <= montoPendiente + 0.01
+  const esAbonoParcial = montoValido && montoIngresado < montoPendiente - 0.01
+  const saldoRestante = Math.max(0, Math.round((montoPendiente - montoIngresado) * 100) / 100)
 
   const fechaVenc = cuota.fechaVencimiento?.toDate
     ? cuota.fechaVencimiento.toDate()
@@ -47,6 +59,7 @@ export function ModalCobro({ cuota, prestamoId, comisionistaId, clienteId, onCer
   }
 
   async function confirmar() {
+    if (!montoValido) return
     setError(null)
     setEnviando(true)
     try {
@@ -57,7 +70,7 @@ export function ModalCobro({ cuota, prestamoId, comisionistaId, clienteId, onCer
           cuotaId: cuota.id,
           comisionistaId,
           clienteId,
-          monto: cuota.monto,
+          monto: montoIngresado,
         })
       } else {
         await registrarPagoEfectivo({
@@ -65,7 +78,7 @@ export function ModalCobro({ cuota, prestamoId, comisionistaId, clienteId, onCer
           cuotaId: cuota.id,
           comisionistaId,
           clienteId,
-          monto: cuota.monto,
+          monto: montoIngresado,
         })
       }
       onCerrar()
@@ -88,11 +101,43 @@ export function ModalCobro({ cuota, prestamoId, comisionistaId, clienteId, onCer
           <div>
             <p className="text-xs text-ink-soft uppercase tracking-wide">Registrar cobro</p>
             <p className="money text-xl font-bold text-ink">
-              Cuota {cuota.numero} · S/ {cuota.monto.toFixed(2)}
+              Cuota {cuota.numero} · S/ {montoPendiente.toFixed(2)}
             </p>
+            {cuota.montoPagado > 0 && (
+              <p className="text-xs text-brand">
+                Ya abono S/ {cuota.montoPagado.toFixed(2)} de S/ {cuota.monto.toFixed(2)}
+              </p>
+            )}
             <p className="text-sm text-ink-soft">{formatFecha(fechaVenc)}</p>
           </div>
           <button onClick={onCerrar} className="text-2xl leading-none text-ink-soft px-1">×</button>
+        </div>
+
+        <div className="mb-5">
+          <label className="block text-sm font-medium text-ink mb-1">Monto a cobrar ahora</label>
+          <div className="flex items-center gap-2 rounded-xl border border-line bg-paper px-4 py-3 focus-within:border-brand">
+            <span className="text-ink-soft">S/</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              value={montoTexto}
+              onChange={(e) => setMontoTexto(e.target.value)}
+              className="money w-full bg-transparent text-lg font-semibold text-ink outline-none"
+            />
+          </div>
+          {!montoValido && (
+            <p className="mt-1.5 text-xs text-danger">
+              Ingresa un monto mayor a 0 y hasta S/ {montoPendiente.toFixed(2)}.
+            </p>
+          )}
+          {esAbonoParcial && (
+            <p className="mt-1.5 text-xs text-brand">
+              Es un abono parcial: quedara un saldo de S/ {saldoRestante.toFixed(2)} pendiente
+              — la cuota no se marca como cobrada todavia, pero tampoco aparecera como morosa.
+            </p>
+          )}
         </div>
 
         {!metodo && (
@@ -157,7 +202,7 @@ export function ModalCobro({ cuota, prestamoId, comisionistaId, clienteId, onCer
             </p>
             <button
               onClick={confirmar}
-              disabled={!codigo.trim() || !!advertencia || verificando || enviando}
+              disabled={!codigo.trim() || !!advertencia || verificando || enviando || !montoValido}
               className="mt-3 w-full rounded-xl bg-brand py-3.5 font-semibold text-white disabled:opacity-50 active:scale-[0.99] transition-transform"
             >
               {enviando ? 'Registrando...' : 'Registrar cobro Yape'}
@@ -173,10 +218,6 @@ export function ModalCobro({ cuota, prestamoId, comisionistaId, clienteId, onCer
             >
               ← Cambiar metodo
             </button>
-            <div className="rounded-2xl bg-paper border border-line p-4 mb-4 text-center">
-              <p className="text-sm text-ink-soft mb-1">Monto a cobrar en efectivo</p>
-              <p className="money text-3xl font-bold text-ink">S/ {cuota.monto.toFixed(2)}</p>
-            </div>
             {error && (
               <p className="mb-3 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
                 {error}
@@ -188,7 +229,7 @@ export function ModalCobro({ cuota, prestamoId, comisionistaId, clienteId, onCer
             </p>
             <button
               onClick={confirmar}
-              disabled={enviando}
+              disabled={enviando || !montoValido}
               className="w-full rounded-xl bg-brand py-3.5 font-semibold text-white disabled:opacity-50 active:scale-[0.99] transition-transform"
             >
               {enviando ? 'Registrando...' : 'Registrar cobro en efectivo'}

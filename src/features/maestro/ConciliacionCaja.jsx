@@ -318,7 +318,7 @@ export default function ConciliacionCaja() {
         )}
 
         {Object.entries(grupos).map(([comisionistaId, grupo]) => {
-          const totalGrupo = grupo.items.reduce((acc, i) => acc + i.monto, 0)
+          const totalGrupo = grupo.items.reduce((acc, i) => acc + (i.montoAbono ?? i.monto), 0)
           const todasSeleccionadas = grupo.items.every((i) => seleccionadas.has(i.id))
 
           return (
@@ -340,7 +340,11 @@ export default function ConciliacionCaja() {
               </div>
 
               <ul className="space-y-2">
-                {grupo.items.map((item) => (
+                {grupo.items.map((item) => {
+                  const montoAbono = item.montoAbono ?? item.monto
+                  const esAbonoParcial =
+                    (item.montoPagado || 0) + montoAbono < item.monto - 0.01
+                  return (
                   <li
                     key={item.id}
                     className="rounded-2xl border border-line bg-surface p-4"
@@ -356,7 +360,7 @@ export default function ConciliacionCaja() {
                         <div className="flex items-center justify-between">
                           <p className="font-medium text-ink truncate">{item.clienteNombre}</p>
                           <span className="money font-semibold text-ink">
-                            S/ {item.monto.toFixed(2)}
+                            S/ {montoAbono.toFixed(2)}
                           </span>
                         </div>
                         <p className="text-xs text-ink-soft mt-0.5">
@@ -367,6 +371,11 @@ export default function ConciliacionCaja() {
                           {' · '}
                           {formatFecha(item.fechaPago)}
                         </p>
+                        {esAbonoParcial && (
+                          <p className="text-xs text-brand mt-0.5">
+                            Abono parcial de la cuota (S/ {item.monto.toFixed(2)} en total)
+                          </p>
+                        )}
 
                         {rechazando === item.id ? (
                           <div className="mt-3 space-y-2">
@@ -415,7 +424,8 @@ export default function ConciliacionCaja() {
                       </div>
                     </div>
                   </li>
-                ))}
+                  )
+                })}
               </ul>
             </section>
           )

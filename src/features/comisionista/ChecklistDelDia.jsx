@@ -84,7 +84,10 @@ export default function ChecklistDelDia() {
     cargar() // recarga la lista: la cuota pagada desaparece sola
   }
 
-  const totalACobrar = items.reduce((acc, c) => acc + (c.monto || 0), 0)
+  const totalACobrar = items.reduce(
+    (acc, c) => acc + Math.max((c.monto || 0) - (c.montoPagado || 0), 0),
+    0
+  )
   const hoy = new Date()
 
   // Dias de atraso de cada cuota (0 si vence hoy, sin haber vencido
@@ -175,13 +178,21 @@ export default function ChecklistDelDia() {
         <ul className="space-y-3">
           {itemsFiltrados.map((cuota) => {
             const dias = diasVencido(cuota)
-            const vencida = dias > 0
+            // Con un abono parcial ya registrado, no cuenta como vencida
+            // aunque la fecha haya pasado — solo falta la diferencia.
+            const tieneAbono = cuota.montoPagado > 0
+            const vencida = dias > 0 && !tieneAbono
+            const montoMostrar = tieneAbono ? cuota.monto - cuota.montoPagado : cuota.monto
 
             return (
               <li
                 key={cuota.id}
                 className={`rounded-2xl border p-4 ${
-                  vencida ? 'border-danger/30 bg-danger-soft' : 'border-line bg-surface'
+                  vencida
+                    ? 'border-danger/30 bg-danger-soft'
+                    : tieneAbono
+                    ? 'border-brand/30 bg-brand-soft'
+                    : 'border-line bg-surface'
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
@@ -189,11 +200,14 @@ export default function ChecklistDelDia() {
                     <p className="font-medium text-ink truncate">{cuota.clienteNombre}</p>
                     <p className={`text-xs ${vencida ? 'text-danger font-semibold' : 'text-ink-soft'}`}>
                       Cuota {cuota.numero} ·{' '}
-                      {vencida ? `VENCIDA hace ${dias} dia${dias !== 1 ? 's' : ''}` : 'Vence hoy'}
+                      {vencida ? `VENCIDA hace ${dias} dia${dias !== 1 ? 's' : ''}` : dias > 0 ? `Vencio hace ${dias} dia${dias !== 1 ? 's' : ''}` : 'Vence hoy'}
                     </p>
+                    {tieneAbono && (
+                      <p className="text-xs text-brand">Abonado S/ {cuota.montoPagado.toFixed(2)}</p>
+                    )}
                   </Link>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="money font-semibold text-ink">S/ {cuota.monto.toFixed(2)}</span>
+                    <span className="money font-semibold text-ink">S/ {montoMostrar.toFixed(2)}</span>
                     <button
                       onClick={() => setCuotaActiva(cuota)}
                       className={`rounded-xl px-3 py-2 text-sm font-medium text-white active:scale-95 transition-transform ${

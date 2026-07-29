@@ -643,7 +643,19 @@ function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCo
           const fechaVenc = cuota.fechaVencimiento?.toDate
             ? cuota.fechaVencimiento.toDate()
             : new Date(cuota.fechaVencimiento)
-          const vencida = esPendiente && fechaVenc < new Date()
+          // Si ya tiene un abono parcial, no cuenta como vencida/morosa
+          // aunque la fecha haya pasado — solo le falta la diferencia
+          // (ver clienteEstadoService.js y ModalCobro.jsx).
+          const tieneAbono = esPendiente && cuota.montoPagado > 0
+          const vencida = esPendiente && fechaVenc < new Date() && !tieneAbono
+          // Mientras esta "por_verificar", lo que corresponde mostrar es
+          // el abono que efectivamente se registro ahora (puede ser
+          // parcial), no el monto completo de la cuota.
+          const montoMostrar = tieneAbono
+            ? cuota.monto - cuota.montoPagado
+            : porVerificar
+            ? cuota.montoAbono ?? cuota.monto
+            : cuota.monto
 
           return (
             <li
@@ -655,6 +667,8 @@ function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCo
                   ? 'bg-gold-soft'
                   : vencida
                   ? 'bg-danger-soft'
+                  : tieneAbono
+                  ? 'bg-brand-soft'
                   : 'bg-paper'
               }`}
             >
@@ -694,6 +708,11 @@ function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCo
                       <span className="ml-1 text-gold">· 🕐 RECALENDARIZACION EN REVISION</span>
                     )}
                   </p>
+                  {tieneAbono && (
+                    <p className="text-xs text-brand">
+                      Abonado S/ {formatMonto(cuota.montoPagado)}
+                    </p>
+                  )}
                   {(pagada || porVerificar) &&
                     cuota.metodoPago === METODO_PAGO.YAPE &&
                     cuota.codigoYape && (
@@ -710,7 +729,7 @@ function CuotasInline({ prestamo, comisionistaId, esMaestro, esPropietario, onCo
 
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="money text-sm font-semibold text-ink">
-                  S/ {formatMonto(cuota.monto)}
+                  S/ {formatMonto(montoMostrar)}
                 </span>
                 {esPendiente &&
                   !cuota.recalendarizacionPendiente &&

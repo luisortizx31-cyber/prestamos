@@ -227,7 +227,18 @@ export default function ChecklistCuotas() {
             const fechaVenc = cuota.fechaVencimiento?.toDate
               ? cuota.fechaVencimiento.toDate()
               : new Date(cuota.fechaVencimiento)
-            const vencida = esPendiente && fechaVenc < new Date()
+            // Con un abono parcial ya registrado, no cuenta como vencida
+            // aunque la fecha haya pasado — solo falta la diferencia.
+            const tieneAbono = esPendiente && cuota.montoPagado > 0
+            const vencida = esPendiente && fechaVenc < new Date() && !tieneAbono
+            // Mientras esta "por_verificar", mostramos el abono
+            // efectivamente registrado ahora (puede ser parcial), no el
+            // monto completo de la cuota.
+            const montoMostrar = tieneAbono
+              ? cuota.monto - cuota.montoPagado
+              : porVerificar
+              ? cuota.montoAbono ?? cuota.monto
+              : cuota.monto
 
             return (
               <li
@@ -239,6 +250,8 @@ export default function ChecklistCuotas() {
                     ? 'border-gold/30 bg-gold-soft'
                     : vencida
                     ? 'border-danger/30 bg-danger-soft'
+                    : tieneAbono
+                    ? 'border-brand/30 bg-brand-soft'
                     : 'border-line bg-surface'
                 }`}
               >
@@ -261,6 +274,9 @@ export default function ChecklistCuotas() {
                       {vencida && <span className="ml-2 text-xs font-semibold">VENCIDA</span>}
                       {porVerificar && <span className="ml-2 text-xs font-semibold">EN REVISION</span>}
                     </p>
+                    {tieneAbono && (
+                      <p className="text-xs text-brand">Abonado S/ {cuota.montoPagado.toFixed(2)}</p>
+                    )}
                     {(pagada || porVerificar) && cuota.metodoPago === METODO_PAGO.YAPE && cuota.codigoYape && (
                       <p className="font-mono text-xs opacity-70 truncate">
                         Yape: {cuota.codigoYape}
@@ -274,7 +290,7 @@ export default function ChecklistCuotas() {
 
                 <div className="flex items-center gap-3 shrink-0">
                   <span className="money text-base font-semibold text-ink">
-                    S/ {cuota.monto.toFixed(2)}
+                    S/ {montoMostrar.toFixed(2)}
                   </span>
                   {esPendiente && !esMaestro && !prestamo?.renovado && solicitudEstaAprobada(prestamo) && (
                     <button

@@ -49,6 +49,10 @@ export async function recalcularEstadoCliente(clienteId, comisionistaId) {
       cuotasSnap.docs.forEach((cuotaDoc) => {
         const cuota = cuotaDoc.data()
         if (cuota.estado !== ESTADO_CUOTA.PENDIENTE) return
+        // Si ya tiene un abono parcial registrado, el cliente esta
+        // pagando esa cuota de a poco — no cuenta como mora aunque la
+        // fecha ya haya pasado (ver conciliacionService.aprobarCuota()).
+        if (cuota.montoPagado > 0) return
 
         const fechaVencimiento = cuota.fechaVencimiento?.toDate
           ? cuota.fechaVencimiento.toDate()
